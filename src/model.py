@@ -68,8 +68,8 @@ class SyscallNode(BaseModel):
     parent: Optional[List[Syscall]] = None
     tactics: Optional[List[str]] = None
     matched_ids: Optional[List[UUID]] = None
-    start_at: Optional[datetime]
-    end_at: Optional[datetime]
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
 
 
 class SysLogObject(BaseModel):

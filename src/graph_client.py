@@ -30,33 +30,21 @@ class GraphClient:
         """
         # search for the same syscall object in the graph.
         # If it exists, update it. If not, create it.
-        current = self.driver.nodes.match(
-            self.__syscall_label(syscall_node.syscall),
-            syscall=syscall_node.syscall,
-            analysis_id=syscall_node.analysis_id,
+        current = self.__get_syscall_from_graph(
+            syscall=syscall_node.syscall, analysis_id=syscall_node.analysis_id
         )
-
         # if there is no matched node, then create a new node.
-        if not current or len(current) == 0:
+        if not current:
             current = Node(
                 self.__syscall_label(syscall_node.syscall),
-                syscall=syscall_node.syscall,
-            )
-        elif len(current) > 1:
-            # check if there are multiple matched nodes.
-            # if there are multiple matched nodes, raise an error.
-            # because there should be only one syscall object with the same syscall and analysis_id.
-            # because syscall is the primary key for the graph object.
-            raise ValueError(
-                f"Multiple syscall objects found with syscall\
-                    {syscall_node.syscall} and analysis_id {syscall_node.analysis_id}. "
-                "This should not happen. Please check your data."
+                syscall=str(syscall_node.syscall),
+                analysis_id=str(syscall_node.analysis_id),
             )
         # set data to the node.
-        current["analysis_id"] = syscall_node.analysis_id
+        current["analysis_id"] = str(syscall_node.analysis_id)
         if syscall_node.parent:
             current["parent"] = [
-                parent_syscall for parent_syscall in syscall_node.parent
+                str(parent_syscall) for parent_syscall in syscall_node.parent
             ]
         if syscall_node.tactics:
             current["tactics"] = list(
@@ -85,22 +73,18 @@ class GraphClient:
                 # get node type from the parent syscall
                 current_parent = self.driver.nodes.match(
                     self.__syscall_label(parent_syscall),
-                    syscall=parent_syscall,
-                    analysis_id=syscall_node.analysis_id,
+                    syscall=str(parent_syscall),
+                    analysis_id=str(syscall_node.analysis_id),
+                )
+                current_parent = self.__get_syscall_from_graph(
+                    syscall=parent_syscall, analysis_id=syscall_node.analysis_id
                 )
                 # if there is no matched parent node, then create a new node.
-                if not current_parent or len(current_parent) == 0:
+                if not current_parent:
                     current_parent = Node(
                         self.__syscall_label(parent_syscall),
-                        syscall=parent_syscall,
-                        analysis_id=syscall_node.analysis_id,
-                    )
-                elif len(current_parent) > 1:
-                    # check if there are multiple matched parent nodes.
-                    # if there are multiple matched parent nodes, raise an error.
-                    raise ValueError(
-                        f"Multiple parent syscall objects found with syscall\
-                            {parent_syscall} and analysis_id {syscall_node.analysis_id}. ",
+                        syscall=str(parent_syscall),
+                        analysis_id=str(syscall_node.analysis_id),
                     )
                 self.driver.merge(
                     current_parent, self.__syscall_label(parent_syscall), "syscall"
@@ -116,6 +100,25 @@ class GraphClient:
     def __syscall_label(self, syscall: Syscall) -> str:
         """Map syscall.type to Neo4j label"""
         return syscall.type.lower()  # execve, file, network
+    
+    def __get_syscall_from_graph(self, syscall: Syscall, analysis_id: UUID) -> Node:
+        """Get syscall node from the graph database"""
+        # search for the syscall node in the graph.
+        current = list(self.driver.nodes.match(
+            self.__syscall_label(syscall),
+            syscall=str(syscall),
+            analysis_id=str(analysis_id),
+        ))
+        # if there is no matched node, then return None.
+        if not current or len(current) == 0:
+            return None
+        # if there are multiple matched nodes, then raise an error.
+        elif len(current) > 1:
+            raise ValueError(
+                f"Multiple syscall objects found with syscall {syscall} and analysis_id {analysis_id}. "
+                "This should not happen. Please check your data."
+            )
+        return current[0]
 
     def __create_relationship(
         self, parent: Node, parent_label: SyscallOP, child: Node, child_label: SyscallOP
