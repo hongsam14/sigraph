@@ -3,23 +3,25 @@ This module defines Pydantic models for Sigraph.
 These models are used to represent the content data of syscalls
 in a structured way.
 """
+
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
+from enum import Enum
 from pydantic import BaseModel
 
-class SyscallOP(BaseModel):
+
+class SyscallOP(str, Enum):
     """_summary_
     Args:
-        BaseModel (_type_):
-        BaseModel is a Pydantic model that provides data validation and serialization.
+        Enum (_type_):
     Attributes:
         EXECVE (str): Represents the execve syscall operation.
         FILE (str): Represents file-related operations.
         NETWORK (str): Represents network-related operations.
     """
 
-    EXECVE: str = "execve"
+    EXECVE = "execve"
     FILE = "file"
     NETWORK = "network"
 
@@ -36,6 +38,12 @@ class Syscall(BaseModel):
 
     id: str
     type: SyscallOP
+    def __str__(self) -> str:
+        """Return a string representation of the syscall."""
+        return f"{self.id}@{self.type.value}"
+
+    def __ref__(self) -> str:
+        return str(self)
 
 
 class SyscallNode(BaseModel):
@@ -60,8 +68,8 @@ class SyscallNode(BaseModel):
     parent: Optional[List[Syscall]] = None
     tactics: Optional[List[str]] = None
     matched_ids: Optional[List[UUID]] = None
-    start_at: datetime
-    end_at: datetime
+    start_at: Optional[datetime]
+    end_at: Optional[datetime]
 
 
 class SysLogObject(BaseModel):
