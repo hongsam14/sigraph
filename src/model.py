@@ -8,8 +8,37 @@ from datetime import datetime
 from uuid import UUID
 from pydantic import BaseModel
 
+class SyscallOP(BaseModel):
+    """_summary_
+    Args:
+        BaseModel (_type_):
+        BaseModel is a Pydantic model that provides data validation and serialization.
+    Attributes:
+        EXECVE (str): Represents the execve syscall operation.
+        FILE (str): Represents file-related operations.
+        NETWORK (str): Represents network-related operations.
+    """
 
-class SyscallObject(BaseModel):
+    EXECVE: str = "execve"
+    FILE = "file"
+    NETWORK = "network"
+
+
+class Syscall(BaseModel):
+    """_summary_
+    Args:
+        BaseModel (_type_):
+        BaseModel is a Pydantic model that provides data validation and serialization.
+    Attributes:
+        id (str): Unique identifier for the syscall.
+        type (SyscallOP): Type of the syscall operation.
+    """
+
+    id: str
+    type: SyscallOP
+
+
+class SyscallNode(BaseModel):
     """_summary_
 
     Args:
@@ -26,11 +55,11 @@ class SyscallObject(BaseModel):
         end_at (datetime): Timestamp when the object was last updated.
     """
 
-    syscall: str
+    syscall: Syscall
     analysis_id: UUID
-    parent: Optional[List[str]] = None
+    parent: Optional[List[Syscall]] = None
     tactics: Optional[List[str]] = None
-    matched_ids: Optional[List[str]] = None
+    matched_ids: Optional[List[UUID]] = None
     start_at: datetime
     end_at: datetime
 
@@ -63,5 +92,5 @@ class SigraphObject(BaseModel):
         syslog_list (Optional[List[SysLogObject]]): List of syslog objects associated with the span.
     """
 
-    syscall_object: SyscallObject
+    syscall_object: SyscallNode
     syslog_list: Optional[List[SysLogObject]]
