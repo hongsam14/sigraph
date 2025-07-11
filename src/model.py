@@ -46,3 +46,17 @@ class SysLogObject(BaseModel):
     span_id: str
     trace_id: str
     raw_data: str
+
+
+class SysSpanObject(BaseModel):
+    """_summary_
+    Args:
+        BaseModel (_type_):
+        BaseModel is a Pydantic model that provides data validation and serialization.
+    Attributes:
+        syscall_object (SyscallObject): The syscall object associated with the span contect data.
+        syslog_list (Optional[List[SysLogObject]]): List of syslog objects associated with the span.
+    """
+
+    syscall_object: SyscallObject
+    syslog_list: Optional[List[SysLogObject]]
