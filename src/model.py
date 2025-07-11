@@ -1,7 +1,12 @@
-from pydantic import BaseModel
+"""_summary_
+This module defines Pydantic models for Sigraph.
+These models are used to represent the content data of syscalls
+in a structured way.
+"""
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
+from pydantic import BaseModel
 
 
 class SyscallObject(BaseModel):
@@ -48,7 +53,7 @@ class SysLogObject(BaseModel):
     raw_data: str
 
 
-class SysSpanObject(BaseModel):
+class SigraphObject(BaseModel):
     """_summary_
     Args:
         BaseModel (_type_):
