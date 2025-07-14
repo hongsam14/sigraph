@@ -11,9 +11,18 @@ class GraphClient:
     """__summary_
     GraphClient is a client for interacting with a Neo4j graph database with Syscall Object.
     """
+    __driver: Graph
+
     def __init__(self, uri: str, user: str, password: str):
-        # Initialize the Neo4j driver with the provided URI, user, and password
-        self.driver = Graph(f"bolt://{uri}:7687", auth=(user, password))
+        print(f"Connecting to Neo4j at {uri} with user {user} with password {password}")
+        try:
+            # Initialize the Neo4j driver with the provided URI, user, and password
+            self.__driver = Graph(f"bolt://{uri}:7687", auth=(user, password))
+        except Exception as e:
+            raise ConnectionError(
+                f"Failed to connect to Neo4j database at {uri}. "
+                "Please check your connection settings."
+            ) from e
 
     def upsert_syscall_object(self, syscall_node: SyscallNode):
         """_summary_
@@ -63,7 +72,7 @@ class GraphClient:
         if syscall_node.end_at:
             current["end_at"] = syscall_node.end_at.isoformat()
         # update the current node in the graph.
-        self.driver.merge(
+        self.__driver.merge(
             current, self.__syscall_label(syscall_node.syscall), "syscall"
         )
         # check if the syscall object has parent. create a relationship with the parent.
@@ -71,7 +80,7 @@ class GraphClient:
             # if it has parent, then create a relationship with the parent.
             for parent_syscall in syscall_node.parent:
                 # get node type from the parent syscall
-                current_parent = self.driver.nodes.match(
+                current_parent = self.__driver.nodes.match(
                     self.__syscall_label(parent_syscall),
                     syscall=str(parent_syscall),
                     analysis_id=str(syscall_node.analysis_id),
@@ -86,7 +95,7 @@ class GraphClient:
                         syscall=str(parent_syscall),
                         analysis_id=str(syscall_node.analysis_id),
                     )
-                self.driver.merge(
+                self.__driver.merge(
                     current_parent, self.__syscall_label(parent_syscall), "syscall"
                 )
                 # creaet relationship
@@ -104,7 +113,7 @@ class GraphClient:
     def __get_syscall_from_graph(self, syscall: Syscall, analysis_id: UUID) -> Node:
         """Get syscall node from the graph database"""
         # search for the syscall node in the graph.
-        current = list(self.driver.nodes.match(
+        current = list(self.__driver.nodes.match(
             self.__syscall_label(syscall),
             syscall=str(syscall),
             analysis_id=str(analysis_id),
@@ -137,4 +146,4 @@ class GraphClient:
             rel_type = "CREATE"
 
         rel = Relationship(parent, rel_type, child)
-        self.driver.merge(rel)
+        self.__driver.merge(rel)
