@@ -81,12 +81,14 @@ class SysLogObject(BaseModel):
         analysis_id (UUID): Unique identifier for the analysis.
         span_id (str): Unique identifier for the span.
         trace_id (str): Unique identifier for the trace.
+        timestamp (datetime): Timestamp of the log entry.
         raw_data (str): Raw log data.
     """
 
     analysis_id: UUID
     span_id: str
     trace_id: str
+    timestamp: datetime
     raw_data: str
 
 
