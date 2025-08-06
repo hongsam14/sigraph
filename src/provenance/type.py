@@ -5,6 +5,8 @@ Each action represents a specific role or action in the context of system calls,
 
 from enum import Enum
 from typing import Literal
+import provenance.exceptions as prov_exceptions
+
 
 class ActionType(str, Enum):
     """_summary_
@@ -91,3 +93,95 @@ class ArtifactType(str, Enum):
     NETWORK: Literal["NETWORK"] = "NETWORK"
     PROCESS: Literal["PROCESS"] = "PROCESS"
     MODULE: Literal["MODULE"] = "MODULE"
+
+
+class SystemProvenance(str):
+    """_summary_
+    Args:
+        str (_type_):
+    This class represents a system provenance string.
+    It is used to format and parse system provenance data.
+    """
+
+    def __new__(cls, value: str):
+        """Create a new SystemProvenance instance."""
+        if not value:
+            raise prov_exceptions.InvalidInputException("Value cannot be empty", ("value", type(value).__name__))
+        ## check if value contains '@'
+        if "@" not in value:
+            raise prov_exceptions.InvalidInputException("Value must contain '@'", ("value", type(value).__name__))
+        return str.__new__(cls, value)
+
+    def __str__(self) -> str:
+        return self
+    
+    def __repr__(self) -> str:
+        return str(self)
+    
+class Artifact:
+    """_summary_
+    Args:
+        name (str): The name of the artifact.
+        artifact_type (ArtifactType): The type of the artifact.
+    This class represents an artifact in the provenance system.
+    It includes the name and type of the artifact.
+    """
+    __name: str
+    __artifact_type: ArtifactType
+
+    def __init__(self,
+                 name: str,
+                 artifact_type: ArtifactType):
+        self.__name = name
+        self.__artifact_type = artifact_type
+
+    @property
+    def name(self) -> str:
+        """Get the name of the artifact"""
+        return self.__name
+    
+    @property
+    def artifact_type(self) -> ArtifactType:
+        """Get the type of the artifact"""
+        return self.__artifact_type
+
+    def __str__(self) -> str:
+        """Get the string representation of the artifact"""
+        return f"{self.name}@{self.artifact_type.name}"
+
+    
+class Actor:
+    """_summary_
+    Args:
+        artifact (Artifact): The artifact associated with the actor.
+        action_type (ActionType): The action type of the actor.
+        actor_type (ActorType): The actor type of the actor.
+    This class represents an actor in the provenance system.
+    Actors are entities that perform actions on artifacts within the system.
+    """
+    __artifact: Artifact
+    __action_type: ActionType
+    __actor_type: ActorType
+
+    def __init__(self,
+                 artifact: Artifact,
+                 action_type: ActionType,
+                 actor_type: ActorType):
+        self.__artifact = artifact
+        self.__action_type = action_type
+        self.__actor_type = actor_type
+
+    @property
+    def artifact(self) -> Artifact:
+        """Get the artifact associated with the actor"""
+        return self.__artifact
+
+    @property
+    def action_type(self) -> ActionType:
+        """Get the action type of the actor"""
+        return self.__action_type
+    
+    @property
+    def actor_type(self) -> ActorType:
+        """Get the actor type of the actor"""
+        return self.__actor_type

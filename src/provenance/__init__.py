@@ -1,18 +1,19 @@
 # __init__.py
 
-from .artifact import Artifact
-from .artifact_extension import ArtifactExtension
-from .type import ActionType, ActorType, ArtifactType
-from .type_extension import TypeExtension
+from .type import SystemProvenance, Artifact, Actor, ActionType, ActorType, ArtifactType
+from .type_extension import TypeExtension, ArtifactExtension, ActorExtension
 from .exceptions import ProvenanceException, InvalidInputException
 
 __all__ = [
+    "SystemProvenance",
     "Artifact",
-    "ArtifactExtension",
+    "Actor",
     "ActionType",
     "ActorType",
     "ArtifactType",
     "TypeExtension",
+    "ArtifactExtension",
+    "ActorExtension",
     # exceptions
     "ProvenanceException",
     "InvalidInputException",
