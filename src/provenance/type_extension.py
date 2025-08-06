@@ -3,6 +3,7 @@ This module is extensions for types used in the provenance system.
 """
 
 import provenance.type as provenance_type
+import provenance.exceptions as provenance_exceptions
 
 class TypeExtension:
     """_summary_
@@ -25,11 +26,11 @@ class TypeExtension:
             ValueError: If the data is empty. or if the data is not a valid ArtifactType.
         """
         if not data:
-            raise ValueError("Data cannot be empty")
+            raise provenance_exceptions.InvalidInputException("Data cannot be empty", ("data", type(data).__name__))
         try:
             return provenance_type.ArtifactType(data)
-        except ValueError:
-            raise ValueError(f"{data} is not a valid ArtifactType")
+        except ValueError as ve:
+            raise provenance_exceptions.InvalidInputException(f"{data} is not a valid ArtifactType", ("ArtifactType", str(ve)))
 
     @staticmethod
     def from_string_to_action_type(data: str) -> provenance_type.ActionType:
@@ -46,11 +47,11 @@ class TypeExtension:
             ValueError: If the data is empty. or if the data is not a valid ActionType.
         """
         if not data:
-            raise ValueError("Data cannot be empty")
+            raise provenance_exceptions.InvalidInputException("Data cannot be empty", ("data", type(data).__name__))
         try:
             return provenance_type.ActionType(data)
-        except ValueError:
-            raise ValueError(f"{data} is not a valid ActionType")
+        except ValueError as ve:
+            raise provenance_exceptions.InvalidInputException(f"{data} is not a valid ActionType", ("ActionType", str(ve)))
 
     @staticmethod
     def from_string_to_actor_type(data: str) -> provenance_type.ActorType:
@@ -67,8 +68,8 @@ class TypeExtension:
             ValueError: If the data is empty. or if the data is not a valid ActorType.
         """
         if not data:
-            raise ValueError("Data cannot be empty")
+            raise provenance_exceptions.InvalidInputException("Data cannot be empty", ("data", type(data).__name__))
         try:
             return provenance_type.ActorType(data)
-        except ValueError:
-            raise ValueError(f"{data} is not a valid ActorType")
+        except ValueError as ve:
+            raise provenance_exceptions.InvalidInputException(f"{data} is not a valid ActorType", ("ActorType", str(ve)))

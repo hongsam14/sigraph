@@ -4,7 +4,7 @@ Each action represents a specific role or action in the context of system calls,
 """
 
 from enum import Enum
-from typing import Literal, Optional, List
+from typing import Literal
 
 class ActionType(str, Enum):
     """_summary_
@@ -33,26 +33,26 @@ class ActionType(str, Enum):
     """
 
     # process actions
-    LAUNCH = "LAUNCH"
-    REMOTE_THREAD = "REMOTE_THREAD"
-    ACCESS = "ACCESS"
-    TAMPERING = "TAMPERING"
+    LAUNCH: Literal["LAUNCH"] = "LAUNCH"
+    REMOTE_THREAD: Literal["REMOTE_THREAD"] = "REMOTE_THREAD"
+    ACCESS: Literal["ACCESS"] = "ACCESS"
+    TAMPERING: Literal["TAMPERING"] = "TAMPERING"
     # network actions
-    CONNECT = "CONNECT"
-    ACCEPT = "ACCEPT"
+    CONNECT: Literal["CONNECT"] = "CONNECT"
+    ACCEPT: Literal["ACCEPT"] = "ACCEPT"
     # file actions
-    CREATE = "CREATE"
-    RENAME = "RENAME"
-    DELETE = "DELETE"
-    MODIFY = "MODIFY"
-    RAW_ACCESS_READ = "RAW_ACCESS_READ"
-    CREATE_STREAM_HASH = "CREATE_STREAM_HASH"
+    CREATE: Literal["CREATE"] = "CREATE"
+    RENAME: Literal["RENAME"] = "RENAME"
+    DELETE: Literal["DELETE"] = "DELETE"
+    MODIFY: Literal["MODIFY"] = "MODIFY"
+    RAW_ACCESS_READ: Literal["RAW_ACCESS_READ"] = "RAW_ACCESS_READ"
+    CREATE_STREAM_HASH: Literal["CREATE_STREAM_HASH"] = "CREATE_STREAM_HASH"
     # registry actions
-    REG_ADD = "REG_ADD"
-    REG_DELETE = "REG_DELETE"
-    REG_SET = "REG_SET"
-    REG_RENAME = "REG_RENAME"
-    REG_QUERY = "REG_QUERY"
+    REG_ADD: Literal["REG_ADD"] = "REG_ADD"
+    REG_DELETE: Literal["REG_DELETE"] = "REG_DELETE"
+    REG_SET: Literal["REG_SET"] = "REG_SET"
+    REG_RENAME: Literal["REG_RENAME"] = "REG_RENAME"
+    REG_QUERY: Literal["REG_QUERY"] = "REG_QUERY"
 
 
 class ActorType(str, Enum):
@@ -67,9 +67,9 @@ class ActorType(str, Enum):
     Each actor represents a specific entity or component in the context of system calls.
     """
 
-    READ_RECV = "READ_RECV"
-    WRITE_SEND = "WRITE_SEND"
-    LAUNCH = "LAUNCH"
+    READ_RECV: Literal["READ_RECV"] = "READ_RECV"
+    WRITE_SEND: Literal["WRITE_SEND"] = "WRITE_SEND"
+    LAUNCH: Literal["LAUNCH"] = "LAUNCH"
 
 
 class ArtifactType(str, Enum):
@@ -86,8 +86,8 @@ class ArtifactType(str, Enum):
     Each artifact represents a specific type of data or resource.
     """
 
-    FILE = "FILE"
-    REGISTRY = "REGISTRY"
-    NETWORK = "NETWORK"
-    PROCESS = "PROCESS"
-    MODULE = "MODULE"
+    FILE: Literal["FILE"] = "FILE"
+    REGISTRY: Literal["REGISTRY"] = "REGISTRY"
+    NETWORK: Literal["NETWORK"] = "NETWORK"
+    PROCESS: Literal["PROCESS"] = "PROCESS"
+    MODULE: Literal["MODULE"] = "MODULE"
