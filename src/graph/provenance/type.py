@@ -5,7 +5,7 @@ Each action represents a specific role or action in the context of system calls,
 
 from enum import Enum
 from typing import Literal
-import provenance.exceptions as prov_exceptions
+import graph.provenance.exceptions as prov_exceptions
 
 
 class ActionType(str, Enum):

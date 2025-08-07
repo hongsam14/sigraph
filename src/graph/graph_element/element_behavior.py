@@ -6,10 +6,10 @@ and upserting SystemProvenance into the graph.
 from typing import Optional
 from py2neo import Graph, Node
 from uuid import UUID
-from provenance.type import SystemProvenance, Actor, Artifact
-from provenance.type_extension import ActorExtension, ArtifactExtension
-from graph_element.exceptions import InvalidInputException, InvalidElementException, GraphDBInteractionException
-from graph_element.element import SigraphNode, SigraphRelationship
+from graph.provenance.type import SystemProvenance, Actor, Artifact
+from graph.provenance.type_extension import ActorExtension, ArtifactExtension
+from graph.graph_element.exceptions import InvalidInputException, InvalidElementException, GraphDBInteractionException
+from graph.graph_element.element import SigraphNode, SigraphRelationship
 
 class GraphElementBehavior:
     """_summary_

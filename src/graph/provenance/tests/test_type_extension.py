@@ -3,9 +3,9 @@ This module is for unit tests for the ActorExtension class in the provenance sys
 """
 
 import unittest
-from provenance.type import SystemProvenance, Actor, Artifact
-from provenance.type_extension import ActorExtension, ArtifactExtension
-from provenance.exceptions import InvalidInputException
+from graph.provenance.type import SystemProvenance, Actor, Artifact
+from graph.provenance.type_extension import ActorExtension, ArtifactExtension
+from graph.provenance.exceptions import InvalidInputException
 
 class TestFromSystemProvenanceToArtifact(unittest.TestCase):
     """Unit tests for the from_system_provenance method in ArtifactExtension."""

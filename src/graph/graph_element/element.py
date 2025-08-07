@@ -7,8 +7,8 @@ from py2neo import Node, Relationship
 from pydantic import BaseModel
 from typing import Optional, List
 from uuid import UUID
-from provenance.type import Artifact, ActionType, ActorType
-from graph_elem.exceptions import InvalidElementException
+from graph.provenance.type import Artifact, ActionType, ActorType
+from graph.graph_element.exceptions import InvalidElementException
 
 class SigraphNode(BaseModel):
     """_summary_

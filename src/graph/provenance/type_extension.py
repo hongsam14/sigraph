@@ -2,9 +2,9 @@
 This module is extensions for types used in the provenance system.
 """
 
-import provenance.type as provenance_type
-import provenance.exceptions as provenance_exceptions
-from provenance.type import SystemProvenance, Artifact, Actor
+import graph.provenance.type as provenance_type
+import graph.provenance.exceptions as provenance_exceptions
+from graph.provenance.type import SystemProvenance, Artifact, Actor
 
 class TypeExtension:
     """_summary_
