@@ -4,7 +4,7 @@ This module is extensions for types used in the provenance system.
 
 import provenance.type as provenance_type
 import provenance.exceptions as provenance_exceptions
-from provenance.type import SystemProvenance, Artifact, Actor, ArtifactType
+from provenance.type import SystemProvenance, Artifact, Actor
 
 class TypeExtension:
     """_summary_
