@@ -4,7 +4,7 @@ and upserting SystemProvenance into the graph.
 """
 
 from typing import Optional
-from py2neo import Graph, Node
+from py2neo import Graph, Node, NodeMatcher
 from uuid import UUID
 from graph.provenance.type import SystemProvenance, Actor, Artifact
 from graph.provenance.type_extension import ActorExtension, ArtifactExtension
@@ -34,7 +34,7 @@ class GraphElementBehavior:
         """
         if not node:
             raise InvalidInputException("Node cannot be None", ("node", type(node).__name__))
-        if "unit_id" not in node or "artifact" not in node:
+        if not "unit_id" in node or not "artifact" in node:
             raise InvalidElementException("Node must contain 'unit_id' and 'artifact' properties", ("node", type(node).__name__))
         return SigraphNode(
             unit_id=UUID(node["unit_id"]),
@@ -71,11 +71,17 @@ class GraphElementBehavior:
             raise InvalidInputException("Artifact cannot be empty", ("artifact", type(artifact).__name__))
         
         try:
-            exist_nodes: list[Node] = list(graph_client.nodes.match(
-                artifact.artifact_type,
+            ## search for existing nodes with the same unit_id and artifact
+            exist_nodes: list[Node] = graph_client.run(
+                f"""
+                MATCH (n:{str(artifact.artifact_type.value)})
+                WHERE n.unit_id = $unit_id AND n.artifact = $artifact
+                RETURN n as node
+                """,
+                artifact_type=str(artifact.artifact_type.value),
                 unit_id=str(unit_id),
                 artifact=str(artifact)
-            ))
+                ).data()
             if not exist_nodes:
                 return None
             ## if there are multiple nodes, raise an exception. because artifact should be unique.
@@ -84,7 +90,7 @@ class GraphElementBehavior:
                     "Multiple nodes found with the same unit_id and artifact. Artifact should be unique.",
                     ("unit_id", str(unit_id), "artifact", str(artifact))
                 )
-            return GraphElementBehavior.from_py2neo_node_to_sigraph(exist_nodes[0])
+            return GraphElementBehavior.from_py2neo_node_to_sigraph(exist_nodes[0]["node"])
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to search for existing nodes in the graph: {e}",
@@ -95,7 +101,7 @@ class GraphElementBehavior:
     def upsert_systemprovenance(
         graph_client: Graph,
         unit_id: UUID,
-        parent_id: str,
+        parent_id: Optional[str],
         related_span_id: str,
         system_provenance: SystemProvenance,
     ):
@@ -120,19 +126,14 @@ class GraphElementBehavior:
             raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
         if not unit_id:
             raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
-        if not parent_id:
-            raise InvalidInputException("Parent ID cannot be empty", ("parent_id", type(parent_id).__name__))
         if not system_provenance:
             raise InvalidInputException("SystemProvenance cannot be empty", ("system_provenance", type(system_provenance).__name__))
         
-        ## create an parent process artifact
-        parent_artifact: Artifact = ArtifactExtension.from_parentID(parent_id)
 
         ## create an Actor instance from the system_provenance
         actor: Actor = ActorExtension.from_systemprovenance(system_provenance)
 
         try:
-
             ## search for the same syscall object in the graph
             related_span_ids: list[str] = []
             
@@ -154,42 +155,53 @@ class GraphElementBehavior:
                 related_span_ids=related_span_ids,
             )
 
-            ## create parent artifact node or use existing one
-            
-            exist_parent_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
-                graph_client, unit_id, parent_artifact
-            )
-
-            if exist_parent_node:
-                ## if the parent node already exists, use it
-                parent_node: SigraphNode = exist_parent_node
-            else:
-                ## if the parent node does not exist, create a new one
-                parent_node: SigraphNode = SigraphNode(
-                    unit_id=unit_id,
-                    artifact=parent_artifact,
+            ## create an parent process artifact
+            if parent_id is not None:
+                parent_artifact: Artifact = ArtifactExtension.from_parentID(parent_id)
+                
+                ## create parent artifact node or use existing one
+                exist_parent_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
+                    graph_client, unit_id, parent_artifact
                 )
 
-            ## create a relationship between the parent node and the current node
-            relationship: SigraphRelationship = SigraphRelationship(
-                process_node=parent_node,
-                action_node=current_node,
-                action_type=actor.action_type,
-                actor_type=actor.actor_type
-            )
+                if exist_parent_node:
+                    ## if the parent node already exists, use it
+                    parent_node: SigraphNode = exist_parent_node
+                else:
+                    ## if the parent node does not exist, create a new one
+                    parent_node: SigraphNode = SigraphNode(
+                        unit_id=unit_id,
+                        artifact=parent_artifact,
+                    )
+
+                ## create a relationship between the parent node and the current node
+                relationship: SigraphRelationship = SigraphRelationship(
+                    process_node=parent_node,
+                    action_node=current_node,
+                    action_type=actor.action_type,
+                    actor_type=actor.actor_type
+                )
 
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to query system provenance: {e}",
-                ("unit_id", str(unit_id), "parent_id", parent_id, "related_span_id", related_span_id, "system_provenance", str(system_provenance))
+                (
+                    "unit_id", str(unit_id),
+                    "parent_id", str(parent_id) if parent_id is not None else "NONE",
+                    "related_span_id", str(related_span_id),
+                    "system_provenance", str(system_provenance)
+                )
             ) from e
 
         ## merge the node and relationship into the graph
         try:
-            graph_client.merge(current_node.py2neo_node(), current_node.artifact.artifact_type, "artifact", "unit_id")
-            graph_client.merge(parent_node.py2neo_node(), parent_node.artifact.artifact_type, "artifact", "unit_id")
-            graph_client.create(relationship.py2neo_relationship())
+            graph_client.merge(current_node.py2neo_node(), str(current_node.artifact.artifact_type.value), "artifact")
+            if parent_id is not None:
+                # If parent_id is provided, merge the parent node and create a relationship
+                graph_client.merge(parent_node.py2neo_node(), str(parent_node.artifact.artifact_type.value), "artifact")
+                graph_client.create(relationship.py2neo_relationship())
         except Exception as e:
+            print(f"Error merging node and relationship into the graph: {e}")
             raise GraphDBInteractionException(
                 f"Failed to merge node and relationship into the graph: {e}",
                 ("unit_id", str(unit_id), "artifact", str(actor.artifact))

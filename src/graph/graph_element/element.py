@@ -2,7 +2,6 @@
 This module defines the elements for the syscall graph data structure.
 """
 
-from datetime import datetime
 from py2neo import Node, Relationship
 from pydantic import BaseModel
 from typing import Optional, List
@@ -10,7 +9,7 @@ from uuid import UUID
 from graph.provenance.type import Artifact, ActionType, ActorType
 from graph.graph_element.exceptions import InvalidElementException
 
-class SigraphNode(BaseModel):
+class SigraphNode:
     """_summary_
     Represents a node in the system provenance graph.
 
@@ -27,33 +26,50 @@ class SigraphNode(BaseModel):
     Each node has a unique id to distinguish user environment, an associated artifact, and optional parent artifacts.
     """
 
-    unit_id: UUID
-    artifact: Artifact
-    related_span_ids: Optional[List[str]]
-    __py2neo_node: Optional[Node] = None
+    __unit_id: UUID
+    __artifact: Artifact
+    __related_span_ids: Optional[List[str]]
+    __neo_node: Node
 
     def __init__(self, unit_id: UUID,
                  artifact: Artifact,
                  related_span_ids: Optional[List[str]] = None):
-        
-        self.unit_id = unit_id
-        self.artifact = artifact
-        self.related_span_ids = related_span_ids
 
-        super().__init__(unit_id=unit_id, artifact=artifact)
+        self.__unit_id = unit_id
+        self.__artifact = artifact
+        self.__related_span_ids = related_span_ids
+        self.__neo_node = None
 
+    @property
+    def unit_id(self) -> UUID:
+        """Get the unique identifier for the node"""
+        return self.__unit_id
+    
+    @property
+    def artifact(self) -> Artifact:
+        """Get the artifact associated with the node"""
+        return self.__artifact
+    
+    @property
+    def related_span_ids(self) -> Optional[List[str]]:
+        """Get the related span ids associated with the node"""
+        return self.__related_span_ids if self.__related_span_ids else []
+    
     def py2neo_node(self) -> Node:
         """_summary
         Convert the SigraphNode instance to a py2neo Node object.
+        This method creates a Node object with essential properties and returns it.
+        Returns:
+            Node: The created py2neo Node object.
         """
         ## Check if the node has already been created
-        if self.__py2neo_node:
-            return self.__py2neo_node
+        if self.__neo_node is not None:
+            return self.__neo_node
 
         ## Create a py2neo Node object from the SigraphNode instance with essential properties.
-        current: Node = Node(Artifact.artifact_type,
-                             unit_id=str(self.unit_id),
+        current: Node = Node(str(self.artifact.artifact_type.value),
                              artifact=str(self.artifact),
+                             unit_id=str(self.unit_id),
                              )
         
         ## add additional properties to the node
@@ -61,11 +77,14 @@ class SigraphNode(BaseModel):
             current["related_span_ids"] = self.related_span_ids
 
         ## Store the created node in the instance variable
-        self.__py2neo_node = current
+        self.__neo_node = current
+
+        print(f"Created py2neo node: {current}")
 
         return current
 
-class SigraphRelationship(BaseModel):
+
+class SigraphRelationship:
     """_summary_
     Represents a relationship in the system provenance graph.
 
@@ -83,11 +102,11 @@ class SigraphRelationship(BaseModel):
     the relationship before and after the actor_node, and the name of the relationship change.
     """
 
-    process_node: SigraphNode
-    action_node: SigraphNode
-    action_type: ActionType
-    actor_type: ActorType
-    __py2neo_relationship: Optional[Relationship] = None
+    __process_node: SigraphNode
+    __action_node: SigraphNode
+    __action_type: ActionType
+    __actor_type: ActorType
+    __neo_relationship: Relationship
 
     def __init__(self,
                  process_node: SigraphNode,
@@ -95,16 +114,32 @@ class SigraphRelationship(BaseModel):
                  action_type: ActionType,
                  actor_type: ActorType):
 
-        self.process_node = process_node
-        self.action_node = action_node
-        self.action_type = action_type
-        self.actor_type = actor_type
+        self.__process_node = process_node
+        self.__action_node = action_node
+        self.__action_type = action_type
+        self.__actor_type = actor_type
+        self.__neo_relationship = None
 
-        super().__init__(process_node=process_node,
-                         action_node=action_node,
-                         action_type=action_type,
-                         actor_type=actor_type)
-
+    @property
+    def process_node(self) -> SigraphNode:
+        """Get the process node associated with the relationship"""
+        return self.__process_node
+    
+    @property
+    def action_node(self) -> SigraphNode:
+        """Get the action node associated with the relationship"""
+        return self.__action_node
+    
+    @property
+    def action_type(self) -> ActionType:
+        """Get the action type of the relationship"""
+        return self.__action_type
+    
+    @property
+    def actor_type(self) -> ActorType:
+        """Get the actor type of the relationship"""
+        return self.__actor_type
+    
     def py2neo_relationship(self) -> Relationship:
         """_summary_
         Convert the SigraphRelationship instance to a py2neo Relationship object.
@@ -117,26 +152,26 @@ class SigraphRelationship(BaseModel):
         """
 
         ## Check if the relationship has already been created
-        if self.__py2neo_relationship:
-            return self.__py2neo_relationship
-        
+        if self.__neo_relationship is not None:
+            return self.__neo_relationship
+
         if self.actor_type == ActorType.READ_RECV:
             rel: Relationship = Relationship(
-                self.action_node.py2neo_node(),
-                self.action_type.value,
-                self.process_node.py2neo_node(),
+                self.__action_node.py2neo_node(),
+                str(self.action_type.value),
+                self.__process_node.py2neo_node(),
             )
         elif self.actor_type == ActorType.WRITE_SEND:
             rel: Relationship = Relationship(
-                self.process_node.py2neo_node(),
-                self.action_type.value,
-                self.action_node.py2neo_node(),
+                self.__process_node.py2neo_node(),
+                str(self.action_type.value),
+                self.__action_node.py2neo_node(),
             )
-        elif self.actor_type == ActorType.LAUNCH:
+        elif self.actor_type == ActorType.NOT_ACTOR:
             rel: Relationship = Relationship(
-                self.process_node.py2neo_node(),
-                self.action_type.value,
-                self.action_node.py2neo_node(),
+                self.__process_node.py2neo_node(),
+                str(self.action_type.value),
+                self.__action_node.py2neo_node(),
             )
         else:
             raise InvalidElementException(
@@ -145,7 +180,7 @@ class SigraphRelationship(BaseModel):
             )
         
         ## Store the created relationship in the instance variable
-        self.__py2neo_relationship = rel
+        self.__neo_relationship = rel
         return rel
         
             
