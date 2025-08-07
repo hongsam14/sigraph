@@ -10,6 +10,10 @@ import provenance.exceptions as prov_exceptions
 
 class ActionType(str, Enum):
     """_summary_
+    Represents system call actions.
+    This enum defines various actions involved in system calls and operations.
+    Each action represents a specific role or action in the context of system calls,
+    such as process actions, network actions, file actions, and registry actions.
     Args:
         Enum (_type_):
     Attributes:
@@ -59,6 +63,9 @@ class ActionType(str, Enum):
 
 class ActorType(str, Enum):
     """_summary_
+    Represents system call actors.
+    This enum defines various types of actors involved in system calls and operations.
+    ActorType indicates the direction of the relationship between artifacts by referring to Syscall Action.
     Args:
         Enum (_type_):
     Attributes:
@@ -76,6 +83,8 @@ class ActorType(str, Enum):
 
 class ArtifactType(str, Enum):
     """_summary_
+    Artifact represents the target of an event that occurs in the system environment.
+    It could be a file, registry, network, process, or module.
     Args:
         Enum (_type_):
     Attributes:
@@ -97,6 +106,14 @@ class ArtifactType(str, Enum):
 
 class SystemProvenance(str):
     """_summary_
+    SystemProvenance is a formatted string that represents a single line of events that occurred in the system.
+    
+    The design of format is as follows:
+    [elem]@[elem] : where [elem] is a string representation of an artifact and its type.
+        
+    For example:
+    file@FILE, network@NETWORK, process@PROCESS
+    
     Args:
         str (_type_):
     This class represents a system provenance string.
@@ -120,6 +137,8 @@ class SystemProvenance(str):
     
 class Artifact:
     """_summary_
+    Artifact represents the target of an event that occurs in the system environment.
+    It could be a file, registry, network, process, or module.
     Args:
         name (str): The name of the artifact.
         artifact_type (ArtifactType): The type of the artifact.
@@ -152,6 +171,8 @@ class Artifact:
     
 class Actor:
     """_summary_
+    Represents an actor in the provenance system.
+    Actors are entities that perform actions on artifacts within the system.
     Args:
         artifact (Artifact): The artifact associated with the actor.
         action_type (ActionType): The action type of the actor.

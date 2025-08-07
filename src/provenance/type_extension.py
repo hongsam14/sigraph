@@ -119,6 +119,31 @@ class ArtifactExtension:
             artifact_type=artifact_type
         )
     
+    @staticmethod
+    def from_parentID(parent_id: str) -> Artifact:
+        """_summary_
+        Create an Artifact instance from a parent ID.
+
+        Args:
+            parent_id (str): The parent ID to create the Artifact from.
+
+        Returns:
+            provenance.artifact.Artifact: An instance of Artifact with the parent ID as the name and PROCESS as the type.
+        
+        Raises:
+            ValueError: If the parent_id is empty.
+        
+        The reason why this method is only for PROCESS is that
+        Actor typed artifacts do not have children.
+        So we do not need to create an Actor Artifact from a parent ID.
+        """
+        if not parent_id:
+            raise provenance_exceptions.InvalidInputException("Parent ID cannot be empty", ("parent_id", type(parent_id).__name__))
+        return provenance_type.Artifact(
+            name=parent_id,
+            artifact_type= TypeExtension.from_string_to_artifact_type("PROCESS")
+        )
+
 
 class ActorExtension:
     """_summary_
