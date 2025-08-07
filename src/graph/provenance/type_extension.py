@@ -139,6 +139,10 @@ class ArtifactExtension:
         """
         if not parent_id:
             raise provenance_exceptions.InvalidInputException("Parent ID cannot be empty", ("parent_id", type(parent_id).__name__))
+        if not isinstance(parent_id, str):
+            raise provenance_exceptions.InvalidInputException("Parent ID must be a string", ("parent_id", type(parent_id).__name__))
+        if len(parent_id) == 0:
+            raise provenance_exceptions.InvalidInputException("Parent ID cannot be empty", ("parent_id", type(parent_id).__name__))
         return provenance_type.Artifact(
             name=parent_id,
             artifact_type= TypeExtension.from_string_to_artifact_type("PROCESS")

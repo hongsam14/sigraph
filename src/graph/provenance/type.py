@@ -136,7 +136,8 @@ class SystemProvenance(str):
     
     def __repr__(self) -> str:
         return str(self)
-    
+
+
 class Artifact:
     """_summary_
     Artifact represents the target of an event that occurs in the system environment.
@@ -169,6 +170,10 @@ class Artifact:
     def __str__(self) -> str:
         """Get the string representation of the artifact"""
         return f"{self.name}@{self.artifact_type.name}"
+    
+    def __repr__(self) -> str:
+        """Get the string representation of the artifact"""
+        return str(self)
 
     
 class Actor:
@@ -208,3 +213,11 @@ class Actor:
     def actor_type(self) -> ActorType:
         """Get the actor type of the actor"""
         return self.__actor_type
+    
+    def __str__(self) -> str:
+        """Get the string representation of the actor"""
+        return f"{self.artifact.name}@{self.artifact.artifact_type.name}@{self.action_type.name}@{self.actor_type.name}"
+    
+    def __repr__(self) -> str:
+        """Get the string representation of the actor"""
+        return str(self)
