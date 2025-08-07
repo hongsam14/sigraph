@@ -59,6 +59,8 @@ class ActionType(str, Enum):
     REG_SET: Literal["REG_SET"] = "REG_SET"
     REG_RENAME: Literal["REG_RENAME"] = "REG_RENAME"
     REG_QUERY: Literal["REG_QUERY"] = "REG_QUERY"
+    # module actions
+    LOAD: Literal["LOAD"] = "LOAD"
 
 
 class ActorType(str, Enum):
@@ -71,14 +73,14 @@ class ActorType(str, Enum):
     Attributes:
         READ_RECV (str): Represents the read/receive action.
         WRITE_SEND (str): Represents the write/send action.
-        LAUNCH (str): Represents the launch action.
+        NOT_ACTOR (str): Represents the not actor action.
     This enum defines various types of actors involved in system calls and operations.
     Each actor represents a specific entity or component in the context of system calls.
     """
 
     READ_RECV: Literal["READ_RECV"] = "READ_RECV"
     WRITE_SEND: Literal["WRITE_SEND"] = "WRITE_SEND"
-    LAUNCH: Literal["LAUNCH"] = "LAUNCH"
+    NOT_ACTOR: Literal["NOT_ACTOR"] = "NOT_ACTOR"
 
 
 class ArtifactType(str, Enum):
