@@ -4,7 +4,7 @@ and upserting SystemProvenance into the graph.
 """
 
 from typing import Optional
-from py2neo import Graph, Node, NodeMatcher
+from py2neo import Graph, Node
 from uuid import UUID
 from graph.provenance.type import SystemProvenance, Actor, Artifact
 from graph.provenance.type_extension import ActorExtension, ArtifactExtension
@@ -201,7 +201,6 @@ class GraphElementBehavior:
                 graph_client.merge(parent_node.py2neo_node(), str(parent_node.artifact.artifact_type.value), "artifact")
                 graph_client.create(relationship.py2neo_relationship())
         except Exception as e:
-            print(f"Error merging node and relationship into the graph: {e}")
             raise GraphDBInteractionException(
                 f"Failed to merge node and relationship into the graph: {e}",
                 ("unit_id", str(unit_id), "artifact", str(actor.artifact))
