@@ -11,7 +11,12 @@ from db.db_model import SyslogModel
 load_dotenv()
 
 # Initialize FastAPI application
+from fastapi import APIRouter
+
 app = FastAPI()
+
+# Create an API router with the /api prefix
+api_router = APIRouter(prefix="/api")
 
 logger.add("logs/app.log",
            rotation="10 MB",
@@ -33,7 +38,7 @@ db_session = DBSession(
     index_name=os.getenv("OPENSEARCH_INDEX", "syslog_index")
 )
 
-@app.post("/syscall")
+@api_router.post("/v1/syscall")
 async def post_syscall(event: GraphNode):
     try:
         graph_session.upsert_system_provenance(event)
@@ -41,10 +46,13 @@ async def post_syscall(event: GraphNode):
     except Exception as e:
         return {"status": "error", "message": str(e)}
     
-@app.post("/syslog")
+@api_router.post("/v1/syslog")
 async def post_syslog(syslog_object: SyslogModel):
     try:
         db_session.store_syslog_object(syslog_object)
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+# Include the router in the FastAPI app
+app.include_router(api_router)
