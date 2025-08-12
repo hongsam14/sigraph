@@ -1,5 +1,5 @@
 # sigraph
-It is a knowledge base that detects behavioral patterns from Otel Trace
+It is a knowledge base that detects behavioral patterns from System Provenance Otel Trace
 
 ```
 
