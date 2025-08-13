@@ -7,7 +7,7 @@ to support OpenSearch, you need to use the `elasticsearch` library 7.13 or earli
 
 from typing import Any
 from elasticsearch_dsl import connections
-from db.db_model import SyslogModel, SyslogDocument
+from db.db_model import SyslogModel, SyslogDocument, install_syslog_template_and_index
 from db.exceptions import DatabaseInteractionException
 
 
@@ -35,7 +35,7 @@ class DBSession:
             ) from e
         try:
             # document initialization
-            self.__syslog_doc.init()
+            install_syslog_template_and_index(connections.get_connection())
         except Exception as e:
             self.__logger.error(f"Failed to initialize SyslogDocument: {e}")
             raise DatabaseInteractionException(f"Failed to initialize SyslogDocument: {e}", (self.__syslog_doc,))
@@ -67,7 +67,7 @@ class DBSession:
                 timestamp=syslog_object.timestamp,
                 raw_data=syslog_object.raw_data
             )
-            doc.save()
+            doc.save(index="syslog_index")
         except Exception as e:
             self.__logger.error(f"Failed to save SyslogObject: {e}")
             raise DatabaseInteractionException(
