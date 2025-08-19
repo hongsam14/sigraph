@@ -6,9 +6,6 @@ from db.db_model import SyslogModel
 from graph.graph_model import GraphNode
 from graph.graph_session import GraphSession
 
-# Initialize FastAPI application
-from fastapi import APIRouter
-
 
 class DBAPI:
     graph_session: GraphSession

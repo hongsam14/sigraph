@@ -17,6 +17,7 @@ class AppConfig:
         self.opensearch_index = os.getenv("OPENSEARCH_INDEX", "syslog_index")
         self.backend_uri = os.getenv("BACKEND_URI", "localhost")
         self.backend_port = os.getenv("BACKEND_PORT", 8765)
+        self.open_ai_api_key = os.getenv("OPENAI_API_KEY", "")
 
     def get_graph_session_config(self):
         return {
@@ -36,3 +37,6 @@ class AppConfig:
             "uri": self.backend_uri,
             "port": self.backend_port
         }
+    
+    def get_openai_api_key(self):
+        return self.open_ai_api_key
