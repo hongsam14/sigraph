@@ -1,13 +1,17 @@
 services:
   neo4j:
-    image: neo4j:latest
+    build: ./neo4j
     volumes:
         - ./volume/logs:/logs
         - ./volume/config:/config
         - ./volume/data:/data
         - ./volume/plugins:/plugins
     environment:
-        - NEO4J_AUTH=neo4j/ChangeMe12#$
+        NEO4J_AUTH: neo4j/ChangeMe12#$
+        NEO4J_apoc_export_file_enabled: "true"
+        NEO4J_apoc_import_file_enabled: "true"
+        NEO4J_apoc_import_file_use__neo4j__config: "true"
+        NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
     ports:
       - "7474:7474"
       - "7687:7687"
