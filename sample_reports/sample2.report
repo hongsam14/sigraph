@@ -1,0 +1,439 @@
+Analysis of the threat case of kimsuky group using 'ClickFix' tactic
+
+◈ Key Findings
+ClickFix is a deceptive tactic that tricks users into unknowingly participating in the attack chain themselves.
+It disguises itself as troubleshooting guides for specific errors or as instructions for security document verification procedures.
+The campaign is believed to be an extension of Kimsuky’s ongoing “BabyShark” threat activity.
+To counter such threats, EDR-based defense strategies are crucial for detecting obfuscated malware and identifying abnormal behaviors.
+
+1. Overview
+○ In early 2025, the Genians Security Center (GSC) identified attack activity involving “ClickFix,” a tactic used by the Kimsuky group. This method, known as ClickFix, was originally introduced in April 2024 by researchers at the U.S. cybersecurity company Proofpoint in their report “From Clipboard to Compromise: A PowerShell Self-Pwn”.
+
+○ In that case, users who visited a compromised website were shown a fake error message designed to look like it came from Google Chrome. The message tricked users into thinking they needed to fix a browser update issue. If they followed the instructions—copying and pasting the suggested code into a PowerShell console—the malware would then be executed.
+
+○ Later, in October 2024, researchers at the French cybersecurity firm Sekoia published a follow-up report titled “ClickFix Tactic: The Phantom Meet”. Then in April 2025, Proofpoint released another report, “Around the World in 90 Days: State-Sponsored Actors Try ClickFix”, revealing that state-sponsored actors from North Korea, Iran, and Russia had also begun using ClickFix in their campaigns.
+
+○ ClickFix is ultimately a psychological manipulation tactic that leads users to unknowingly run malicious commands, step by step, without recognizing the threat. To prevent similar attacks, it's important to stay informed through real-world examples and invest in ongoing security awareness training. It’s also critical to strengthen endpoint protection by proactively detecting abnormal behavior through EDR.
+
+
+ 
+◈ Key Findings
+ClickFix is a deceptive tactic that tricks users into unknowingly participating in the attack chain themselves.
+It disguises itself as troubleshooting guides for specific errors or as instructions for security document verification procedures.
+The campaign is believed to be an extension of Kimsuky’s ongoing “BabyShark” threat activity.
+To counter such threats, EDR-based defense strategies are crucial for detecting obfuscated malware and identifying abnormal behaviors.
+
+ 
+
+1. Overview
+○ In early 2025, the Genians Security Center (GSC) identified attack activity involving “ClickFix,” a tactic used by the Kimsuky group. This method, known as ClickFix, was originally introduced in April 2024 by researchers at the U.S. cybersecurity company Proofpoint in their report “From Clipboard to Compromise: A PowerShell Self-Pwn”.
+
+○ In that case, users who visited a compromised website were shown a fake error message designed to look like it came from Google Chrome. The message tricked users into thinking they needed to fix a browser update issue. If they followed the instructions—copying and pasting the suggested code into a PowerShell console—the malware would then be executed.
+
+○ Later, in October 2024, researchers at the French cybersecurity firm Sekoia published a follow-up report titled “ClickFix Tactic: The Phantom Meet”. Then in April 2025, Proofpoint released another report, “Around the World in 90 Days: State-Sponsored Actors Try ClickFix”, revealing that state-sponsored actors from North Korea, Iran, and Russia had also begun using ClickFix in their campaigns.
+
+○ ClickFix is ultimately a psychological manipulation tactic that leads users to unknowingly run malicious commands, step by step, without recognizing the threat. To prevent similar attacks, it's important to stay informed through real-world examples and invest in ongoing security awareness training. It’s also critical to strengthen endpoint protection by proactively detecting abnormal behavior through EDR.
+
+ 
+
+ 
+
+2. Background
+○ In a previous report titled “Analysis of the Triple Combo Threat of the Kimsuky Group”, we introduced the "AppleSeed" campaign. Another campaign that continues to be observed alongside it is "BabyShark", as detailed in the report “A Deep Dive into the Kimsuky Threat Tactics & BlueShark”.
+
+○ Notably, the use of MMC console files (.msc) as part of an attack tactic was first revealed in the report “Analysis of Kimsuky APT attack using HWP & MSC malware”. This exposure is considered to have effectively disrupted the use of that specific attack pattern.
+
+○ The "BabyShark" campaign is known for its swift adoption of new attack techniques, often integrating them with script-based mechanisms. The “ClickFix” tactic discussed in this report appears to be another case of publicly available methods being adapted for malicious use.
+
+3.  Threat Case Analysis
+
+3-1. VBS-Based Attack Case Prior to the Introduction of “ClickFix”
+○ In January 2025, a covert spear-phishing attack targeted a specific expert in South Korea specializing in diplomacy, national security, and international politics.
+
+○ The threat actor behind the attack posed as an East Asia correspondent for NZZ, a German-language daily newspaper headquartered in Switzerland. Claiming to be covering Korea, Japan, and Taiwan, the actor requested a written interview, stating they were seeking insights into South Korea’s political and security landscape in light of recent developments.
+
+○ The email recipient did not suspect anything unusual at the time and responded by accepting the interview request. Several follow-up emails were exchanged to coordinate the schedule and location. Up to this point, there were no visible signs of an attack.
+
+○ After a series of messages, the threat actor revealed their true intent. Claiming to share a list of preliminary questions for a more in-depth interview, they sent a malicious URL. To ease suspicion and prompt the recipient to access the file, they emphasized that it was being shared through a secure method.
+
+○ The file named “[NZZ] Interview Questionnaire.rar” was delivered in an encrypted archive format and contained a malicious Visual Basic Script (.vbs) file. The script’s shell commands were organized into three main code blocks.
+
+○ [Code Block 1] initializes variables such as pp, dd, and ff, and uses the pp variable to execute a cmd command that opens a decoy Google Document in the user’s browser.
+[Code Block 2] uses the dd variable to create a hidden temporary directory (tempcaches), then downloads a file from the C2 server at konamo[.]xyz using the curl command. It also establishes persistence by registering a scheduled task via the schtasks command.
+[Code Block 3] uses the ff variable to collect information on currently running processes and user details, then sends the data to the konamo[.]xyz C2 server.
+
+○ When connecting to the C2 server, the string “Version:RE4T-GT7J-KJ90-JB6F-VG5F” was displayed. This pattern has previously been observed in the Kimsuky group’s “BabyShark” campaign.
+
+○ The script uses string obfuscation, a common technique in malware that can also indicate related threats. In this case, the string 7539518426 is randomly inserted to obscure keywords and reduce readability. This method is designed to evade signature-based detection and complicate analysis by security tools.
+
+○ The script doesn’t decrypt the content directly. Instead, it uses the Windows command line’s call function with the %string:stringA=stringB% syntax. For example, call %c1:7539518426=% replaces the string 7539518426 with an empty value in the c1 environment variable, effectively restoring the original command. As a result, any inserted instances of 7539518426 are removed at runtime.
+
+
+ 
+◈ Key Findings
+ClickFix is a deceptive tactic that tricks users into unknowingly participating in the attack chain themselves.
+It disguises itself as troubleshooting guides for specific errors or as instructions for security document verification procedures.
+The campaign is believed to be an extension of Kimsuky’s ongoing “BabyShark” threat activity.
+To counter such threats, EDR-based defense strategies are crucial for detecting obfuscated malware and identifying abnormal behaviors.
+
+ 
+
+1. Overview
+○ In early 2025, the Genians Security Center (GSC) identified attack activity involving “ClickFix,” a tactic used by the Kimsuky group. This method, known as ClickFix, was originally introduced in April 2024 by researchers at the U.S. cybersecurity company Proofpoint in their report “From Clipboard to Compromise: A PowerShell Self-Pwn”.
+
+○ In that case, users who visited a compromised website were shown a fake error message designed to look like it came from Google Chrome. The message tricked users into thinking they needed to fix a browser update issue. If they followed the instructions—copying and pasting the suggested code into a PowerShell console—the malware would then be executed.
+
+○ Later, in October 2024, researchers at the French cybersecurity firm Sekoia published a follow-up report titled “ClickFix Tactic: The Phantom Meet”. Then in April 2025, Proofpoint released another report, “Around the World in 90 Days: State-Sponsored Actors Try ClickFix”, revealing that state-sponsored actors from North Korea, Iran, and Russia had also begun using ClickFix in their campaigns.
+
+○ ClickFix is ultimately a psychological manipulation tactic that leads users to unknowingly run malicious commands, step by step, without recognizing the threat. To prevent similar attacks, it's important to stay informed through real-world examples and invest in ongoing security awareness training. It’s also critical to strengthen endpoint protection by proactively detecting abnormal behavior through EDR.
+
+ 
+
+ 
+
+2. Background
+○ In a previous report titled “Analysis of the Triple Combo Threat of the Kimsuky Group”, we introduced the "AppleSeed" campaign. Another campaign that continues to be observed alongside it is "BabyShark", as detailed in the report “A Deep Dive into the Kimsuky Threat Tactics & BlueShark”.
+
+○ Notably, the use of MMC console files (.msc) as part of an attack tactic was first revealed in the report “Analysis of Kimsuky APT attack using HWP & MSC malware”. This exposure is considered to have effectively disrupted the use of that specific attack pattern.
+
+○ The "BabyShark" campaign is known for its swift adoption of new attack techniques, often integrating them with script-based mechanisms. The “ClickFix” tactic discussed in this report appears to be another case of publicly available methods being adapted for malicious use.
+
+
+
+[Figure 2-1] Attack Scenario
+
+ 
+
+ 
+
+3.  Threat Case Analysis
+
+3-1. VBS-Based Attack Case Prior to the Introduction of “ClickFix”
+○ In January 2025, a covert spear-phishing attack targeted a specific expert in South Korea specializing in diplomacy, national security, and international politics.
+
+○ The threat actor behind the attack posed as an East Asia correspondent for NZZ, a German-language daily newspaper headquartered in Switzerland. Claiming to be covering Korea, Japan, and Taiwan, the actor requested a written interview, stating they were seeking insights into South Korea’s political and security landscape in light of recent developments.
+
+○ The initial phishing email used to establish contact is shown below.
+
+
+Greetings,
+
+
+Please allow me to introduce myself:
+
+
+I am East Asia Correspondent with the German financial daily Handelsblatt and its Swiss partner publication NZZ (Neue Zürcher Zeitung), covering Japan, the Koreas and Taiwan.
+
+
+I am reaching out to request an interview with you to gain your insights into South Korea’s current political and security dynamics in light of recent developments.
+
+
+The arrest of President Yoon Suk-yeol, along with the investigation into allegations of insurrection following the declaration of martial law, has significantly shifted South Korea's political landscape. These developments have introduced new challenges to South Korea’s foreign policy and security strategy.
+
+
+Given your deep expertise in Northeast Asian geopolitics and inter-Korean relations, I would greatly value your perspective on how this political turmoil might affect South Korea’s external relations, particularly with major powers like the United States and China. 
+
+
+Additionally, I am keen to hear your insights on the implications of North Korea’s recent military activities and changes in its international relations for the security environment on the Korean Peninsula.
+
+
+If interested, please respond to this email at your earliest convenience. I look forward to your positive reply.
+
+
+Thanks for your consideration and time in advance.
+
+
+Best regards,
+
+
+East Asia Correspondent
+
+[Table 3-1] Contents of the Initial Phishing Email
+
+
+○ The email recipient did not suspect anything unusual at the time and responded by accepting the interview request. Several follow-up emails were exchanged to coordinate the schedule and location. Up to this point, there were no visible signs of an attack.
+
+○ After a series of messages, the threat actor revealed their true intent. Claiming to share a list of preliminary questions for a more in-depth interview, they sent a malicious URL. To ease suspicion and prompt the recipient to access the file, they emphasized that it was being shared through a secure method.
+
+
+
+[Figure 3-1] Malicious File Delivered via pCloud
+
+
+○ The file named “[NZZ] Interview Questionnaire.rar” was delivered in an encrypted archive format and contained a malicious Visual Basic Script (.vbs) file. The script’s shell commands were organized into three main code blocks.
+
+○ [Code Block 1] initializes variables such as pp, dd, and ff, and uses the pp variable to execute a cmd command that opens a decoy Google Document in the user’s browser.
+[Code Block 2] uses the dd variable to create a hidden temporary directory (tempcaches), then downloads a file from the C2 server at konamo[.]xyz using the curl command. It also establishes persistence by registering a scheduled task via the schtasks command.
+[Code Block 3] uses the ff variable to collect information on currently running processes and user details, then sends the data to the konamo[.]xyz C2 server.
+
+○ When connecting to the C2 server, the string “Version:RE4T-GT7J-KJ90-JB6F-VG5F” was displayed. This pattern has previously been observed in the Kimsuky group’s “BabyShark” campaign.
+
+
+
+[Figure 3-2] C2 Server demo.php?ccs=cout Screen
+
+
+○ The script uses string obfuscation, a common technique in malware that can also indicate related threats. In this case, the string 7539518426 is randomly inserted to obscure keywords and reduce readability. This method is designed to evade signature-based detection and complicate analysis by security tools.
+
+○ The script doesn’t decrypt the content directly. Instead, it uses the Windows command line’s call function with the %string:stringA=stringB% syntax. For example, call %c1:7539518426=% replaces the string 7539518426 with an empty value in the c1 environment variable, effectively restoring the original command. As a result, any inserted instances of 7539518426 are removed at runtime.
+
+
+
+[Figure 3-3] VBS Code Block
+
+
+○ Although the script uses obfuscation by repeatedly inserting random numbers, this level of VBS-based malware is still likely to be detected.
+
+3-2. Adoption of the Email-Based “ClickFix” Tactic
+○ As shown in the previous scenario, attackers can move closer to their targets through sustained communication. However, VBS-based malicious scripts are widely known and more likely to be detected by modern security solutions. To overcome this limitation, threat actors may instead deploy the “ClickFix” tactic in real-world attacks.
+
+○ In March 2025, a spear-phishing attempt was observed in South Korea. The threat actor impersonated an aide to a senior U.S. national security official and asked the recipient if they could attend a separate meeting during the official’s planned visit to Korea.
+
+If the recipient responded, the attacker followed up with an attachment, claiming it contained a list of questions for the meeting. They also tried to trick the target into opening a manual and entering an authentication code, supposedly required to access a secure document.
+
+○ The PDF document, styled as a user manual, was initially written in English. However, additional versions were found in multiple languages, including French, German, Japanese, Korean, Russian, and Chinese.
+
+○ The attachment contained both the manual and a file named Code.txt. While the original “ClickFix” tactic tricked users into clicking to fix a specific error, this variant modified the approach by prompting users to copy and paste an authentication code to access a secure document.○ The attachment contained both the manual and a file named Code.txt. While the original “ClickFix” tactic tricked users into clicking to fix a specific error, this variant modified the approach by prompting users to copy and paste an authentication code to access a secure document.
+
+○ Since the command is intended to be pasted directly into a PowerShell window, it must avoid raising the user’s suspicion. To achieve this, the attacker applied reverse-order obfuscation, making the command visually difficult to interpret.
+
+○ The script first stores the core functionality as a string in the $value variable, then reverses the string and assigns it to $req_value. This reversed command is executed via the command prompt (cmd.exe), after which the process ends.
+
+○ After reversing the obfuscated string, a comparison with the previously introduced VBS script reveals highly similar code patterns.
+
+○ Although the C2 server address had changed to raedom[.]store, the use of Google Drive to deliver the decoy file and the obfuscation pattern involving the string 7539518426 remained the same.
+
+○ In addition, the C2 communication paths—demo.php?ccs=cin and demo.php?ccs=cout—and the temporary directory path tempcaches were identical. The C2 web page also displayed the same string: Version:RE4T-GT7J-KJ90-JB6F-VG5F.
+
+○ If a user unknowingly copies the contents of Code.txt into a PowerShell window, their system will be infected. A scheduled task is then created to maintain persistent communication with the C2 server, enabling data collection and the delivery of additional malicious payloads.
+
+3-3. Case of the “ClickFix” Tactic Delivered via a Website
+○ Another instance of the “ClickFix” tactic was observed on a website disguised as a legitimate defense research job portal. The threat actor set up a fake site with job listings, and when a visitor clicked on one, a popup message appeared.
+
+○ The popup then guided users to download and install Chrome Remote Desktop on their system. The attacker would then configure access to the victim’s computer via Secure Shell (SSH), enabling remote control.
+
+○ A similar case was previously shared on social media by “Microsoft Threat Intelligence”, which revealed related C2 addresses such as “securedrive.fin-tech[.]com” and “115.92.4[.]123 (KR)”.
+
+○ In the Korean case, the C2 domain was “kida.plusdocs.kro[.]kr,” with an associated IP address of 1.223.129[.]234 (KR). Due to a directory listing vulnerability on the web server at the time, the exposed data was publicly accessible without restriction.
+
+○ In addition to South Korea–based IP addresses (partially masked for anonymization) that are likely associated with victims, several international addresses were also identified.
+
+IP	Domain	Hosting
+1.223.129[.]234 (KR)	kida.plusdocs.kro[.]kr	내도메인[.]한국
+mspro.kro[.]kr
+msprovider.menews.o-r[.]kr
+211.170.73[.]245 (KR)	nid.naver.rkfd[.]com	Godaddy
+e-securedrive.assembly.twoon.co[.]kr	Cloudflare
+securedrivelog.register[.]im	Afraid
+
+○ The keylogging record included a Proton Drive link that had been used in the spear-phishing attack.
+
+○ The WORKING AGENDA.zip file delivered via Proton Drive is a typical example of the Kimsuky group’s “BabyShark” series. Inside the archive is a shortcut file named USSC_AUSTRALIA-KOREA-JAPAN_TRACK-1.5_DIALOGUE.lnk, disguised with a Microsoft Edge icon.
+
+○ The technique closely resembles what was documented in the “A Deep Dive into the Kimsuky Threat Tactics & BlueShark” report published on October 4, 2024. It uses a launcher file from Adersoft’s “VBScript Editor with Debugger” program to execute a malicious manifest file.
+
+○ Additionally, communication with the C2 servers androcl.csproject[.]org and 118.193.69[.]151 (KR) exhibited patterns similar to those seen in previous “BabyShark” activity. A related domain, login.androclesproject.o-r[.]kr, was also observed within the same IP range, which is allocated by 내도메인[.]한국.
+
+○ The same malicious LNK file, along with the decoy PDF document used in this attack, has been reported in multiple other cases.
+
+○ While the decoy document remains the same, the C2 server addresses and paths vary depending on the malware variant.
+
+
+MD5 (LNK File)	C2	File Size (Bytes)
+40ce5cf6be259120d179f51993aec854	androcl.csproject[.]org/happy_0320/d.php?newpa=comline&&wpn=jeffrey	942,821
+a523bf5dca0f2a4ace0cf766d9225343	103.149.98[.]247/vs/t1/d.php?newpa=comline&wpn=soofer	566,849
+89a725b08ab0e8885fc03b543638be96	103.149.98[.]247/vs/tt/d.php?newpa=comline&wpn=soofer	562,975
+fc4c319d7940ad1b7c0477469420bd11	103.149.98[.]247/vs/tA/d.php?newpa=comline&wpn=aaa	566,842
+
+4. Threat Intelligence Pivoting
+○ In threat intelligence (TI), pivoting refers to the process of exploring related information based on a specific data point, in order to expand understanding of the threat and its attributes. This technique helps uncover hidden relationships and correlations between indicators of compromise (IoCs), and is often used in the analysis of broader threat campaigns.
+
+○ In Proofpoint’s analysis of the “ClickFix” campaign, the section titled “North Korea: TA427” describes the final payload as QuasarRAT. The associated Kimsuky C2 server used in that case was 38.180.157[.]197 (NL).
+
+○ The Netherlands-based C2 mentioned above was observed in a phishing email disguised as a TV debate invitation from a U.S. broadcaster. The sender’s domain in that case was voanews.co[.]com. Additionally, Proofpoint’s network infrastructure analysis revealed that the design of the fake secure drive used in a mid-January 2025 case—and in a separate February 2025 case involving impersonation of a Korean police investigator—was strikingly similar.
+
+○ The “BabyShark” series typically employs a variety of script-based attacks, including BAT, VBS, and PowerShell, and is known to deliver Remote Access Tools (RATs). It also frequently uses themed phishing campaigns to steal email account credentials.
+
+
+Domain	IP	CC
+konamo[.]xyz	162.0.229[.]227	US
+cafe24[.]pro
+temuco[.]xyz
+tenelbox[.]store
+raedom[.]store
+cukumam[.]shop
+bikaro[.]store
+naunsae[.]store
+secure.drive.polices[.]site	157.7.184[.]11	JP
+account-profile.servepics[.]com	210.179.30[.]213	KR
+accounts-porfile.serveirc[.]com
+securedrive.servehttp[.]com	172.86.111[.]75	US
+118.194.228[.]184	JP
+securedrive.fin-tech[.]com	115.92.4[.]123	KR
+kida.plusdocs.kro[.]kr	1.223.129[.]234	KR
+mspro.kro[.]kr
+msprovider.menews.o-r[.]kr
+securedrive-overseas-state.bit-albania[.]com	65.254.248[.]151	US
+securedrive.privatedns[.]org	121.179.161[.]231	KR
+
+5. Threat Attribution
+○ In the field of cyber threat analysis, threat attribution refers to the process of identifying specific cyberattacks or attackers and tracing the tools, techniques, and procedures (TTPs) they used. This is typically conducted for the following purposes:
+
+Identification of Threat Actors
+To determine the individuals, groups, or organizations responsible for an attack.
+Tactics and Techniques Analysis
+To understand and analyze hacking techniques, malware, and methods of intrusion.
+Evidence Collection
+To gather digital evidence for reconstructing incidents and tracking attacker activity.
+
+○ In the phishing email used during the February incident involving impersonation of a Korean police investigator, North Korean vocabulary was identified. For example, while South Korea uses the word “내일” (tomorrow), North Korean usage prefers “래일.” Understanding such linguistic differences between the two Koreas requires careful linguistic and contextual analysis.
+
+○ In another case, a fake job posting in the defense sector used the North Korean-style term “적재일.” In South Korea, more appropriate terms for this context would be “등록일” (registration date) or “게시일” (posting date).
+
+○ North Korean-style expressions were also found in the ClickFix message window. Examples include terms like “지령” (command) and “체계 정보” (system information), which reflect North Korean IT terminology. In South Korea, these would more commonly be expressed as “명령” and “시스템 정보,” respectively.
+
+6. Phishing Attack Impersonating a Korean Web Portal
+○ In early June 2025, a new “ClickFix” attack was identified that mimicked the security settings interface of a Korean web portal. This attack is also believed to be the work of the Kimsuky group.
+
+○ The threat actor displayed a fake site designed to resemble a portal’s security settings page and prompted the user to check a box disguised as a CAPTCHA. Once the box was checked, a popup appeared, instructing the user to paste and execute a malicious PowerShell command.
+
+○ Through the PowerShell command, the attacker executed instructions from the C2 server and downloaded additional malicious code. This included launching a malicious AutoIt script disguised as HncUpdateTray.exe, an AutoIt v3 application, to steal user information and carry out further malicious activity.
+
+7. Conclusion
+○ To better understand the “ClickFix” tactic and prevent similar incidents, it is helpful to recognize the following example screens.
+
+○ While the interface may vary slightly depending on the Windows OS version and environment, any prompt asking the user to enter a specific code into PowerShell should be treated as suspicious and potentially related to the “ClickFix” tactic. The screenshot on the left shows the Korean version; the one on the right is in English.
+
+○ In summary, the attacker typically displays a popup from a compromised website or sends a deceptive email that instructs the user to run a PowerShell command—often under administrator privileges. If the user is prompted to manually copy and paste a predefined script, it is highly likely to be malicious. Users should be aware that blindly following such instructions can be extremely dangerous.
+
+○ The MITRE ATT&CK framework categorizes this technique under User Execution: Malicious Copy and Paste (T1204.004) and provides recommended mitigation strategies.
+
+○ The “ClickFix” tactic is a socially engineered attack designed to manipulate user behavior while also attempting to evade traditional security detection. However, the Genian EDR agent is capable of precisely identifying these types of threat activities.
+
+○ Even if a PowerShell command is executed manually by the user, Genian EDR offers full visibility into the action. Security Operations Center (SOC) teams can easily track the flow of process execution events collected from the endpoint.
+
+○ After the PowerShell.exe process is launched, subsequent processes such as cmd.exe, attrib.exe, and schtasks.exe are sequentially executed and tagged with corresponding MITRE ATT&CK Techniques.
+
+○ Genian EDR provides a visualized Attack Story Line, allowing administrators to easily trace any C2 communications initiated after a PowerShell command is executed.
+
+○ Genian EDR enables administrators to effectively manage threat detections. They can review detailed logs of C2 communications and determine whether the connection attempts were successful or not.
+
+○ The identified C2 information can be linked directly to internal firewall policies. IP addresses and domain names detected by EDR can be added to firewall blocklists, helping to prevent similar threats from infiltrating the network in the future. Additionally, using the Indicators of Compromise (IoCs) provided below is another effective mitigation strategy.
+
+○ Genian EDR also works in close collaboration with major domestic and international institutions and companies to provide real-time updates of the latest IoC data, supporting stronger security operations for its customers.
+
+8. Indicator of Compromise
+
+MD5
+56233bac07f4f9c43585e485e70b6169
+
+a523bf5dca0f2a4ace0cf766d9225343
+
+ad6104a503b46bf6ea505fe8b3182970
+
+bf795a376233032d05766a396b3d6e08
+
+ca13c54987293ae7efc22b14e1153c1e
+
+d10208c32fbbb5cacbd2097fc0dcd444
+
+fc4c319d7940ad1b7c0477469420bd11
+
+fcde319b752cacec40ffba130067de0d
+
+8c33e8439844c315b7b3f21b0c1633aa
+
+8ff155a2962c77e9da05bd0476af36be
+
+12bfe00206b2e83c7ff79b657d3c56df
+
+89a725b08ab0e8885fc03b543638be96
+
+627b856884604880a5c009ebf7173efb
+
+913fe4236ca5e34879d2a3228da6b9c6
+
+3297e3606d6466bc7f741a4df2b9e96a
+
+0a9c22079c898fc112e67ce1caff8f54
+
+ 
+
+C2
+www.online.check-computer.kro[.]kr
+
+online.lecture-site.kro[.]kr
+
+cyber.lecture.site.online-driver.kro[.]k
+
+account-profile.servepics[.]com
+
+accounts-porfile.serveirc[.]com
+
+cafe24[.]pro
+
+cukumam[.]shop
+
+bikaro[.]store
+
+naunsae[.]store
+
+kida.plusdocs.kro[.]kr
+
+konamo[.]xyz
+
+mspro.kro[.]kr
+
+msprovider.menews.o-r[.]kr
+
+raedom[.]store
+
+secure.drive.polices[.]site
+
+securedrive-overseas-state.bit-albania[.]com
+
+securedrive.fin-tech[.]com
+
+securedrive.privatedns[.]org
+
+securedrive.servehttp[.]com
+
+temuco[.]xyz
+
+tenelbox[.]store
+
+androcl.csproject[.]org
+
+login.androclesproject.o-r[.]kr
+
+1.223.129[.]234
+
+103.149.98[.]247
+
+103.149.98[.]248
+
+106.243.157[.]158
+
+112.74.194[.]45
+
+115.92.4[.]123
+
+118.193.69[.]151
+
+118.194.228[.]184
+
+121.179.161[.]231
+
+157.7.184[.]11
+
+162.0.229[.]227
+
+172.86.111[.]75
+
+210.179.30[.]213
+
+211.170.73[.]245
+
+38.180.157[.]197
+
+65.254.248[.]151
