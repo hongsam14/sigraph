@@ -50,7 +50,6 @@ class DBAPI:
             description="Store a syslog object in the database."
         )
 
-    @api_router.post("/syscall")
     async def post_syscall(self, event: GraphNode):
         """Post a system call event to the graph database."""
         try:
@@ -59,7 +58,6 @@ class DBAPI:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    @api_router.post("/syslog")
     async def post_syslog(self, syslog_object: SyslogModel):
         """Post a syslog object to the database."""
         try:

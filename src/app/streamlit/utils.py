@@ -9,9 +9,11 @@ def send_message(config: AppConfig, message: str) -> dict:
     """
     try:
         response = requests.post(
-            f"http://{config.backend_uri}:{config.backend_port}/chat",
-            params={"query": message},
-            timeout=120
+            f"http://{config.backend_uri}:{config.backend_port}/api/v1/ai/query",
+            json={"question": message},
+            timeout=600, # 10 minutes timeout because of the long processing time
+            allow_redirects=False,
+            headers={"Content-Type": "application/json"}
         )
         response.raise_for_status()
         data = response.json()
