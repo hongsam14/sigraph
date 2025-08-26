@@ -7,9 +7,11 @@ to support OpenSearch, you need to use the `elasticsearch` library 7.13 or earli
 """
 
 from typing import Any
+from fastapi.encoders import jsonable_encoder
 from opensearchpy import OpenSearch
 from db.db_model import SyslogModel, install_syslog_template_and_index
 from db.exceptions import DatabaseInteractionException
+import traceback
 
 
 class DBSession:
@@ -56,7 +58,7 @@ class DBSession:
             self.__logger.info("Closed connection to OpenSearch.")
 
 
-    def store_syslog_object(self, syslog_object: SyslogModel):
+    async def store_syslog_object(self, syslog_object: SyslogModel):
         """_summary_
         Save a SyslogObject to OpenSearch.
 
@@ -67,12 +69,14 @@ class DBSession:
             DatabaseInteractionException: If there is an error during the save operation.
         """
         try:
+            doc = jsonable_encoder(syslog_object)
             self.__client.index(
                 index=self.__index_name,
-                body=syslog_object,
+                body=doc,
                 params={"refresh": "wait_for"},  # Ensures the document is searchable immediately
             )
         except Exception as e:
+            print(traceback.format_exc())
             self.__logger.error(f"Failed to save SyslogObject: {e}")
             raise DatabaseInteractionException(
                 f"Failed to save SyslogObject: {e}",
