@@ -60,10 +60,10 @@ def main():
 
         # Minimal about section
         st.write("##### About")
-        st.write("Query employee & business data")
+        st.write("Query malware analysis report")
 
     # Rest of your app code remains the same...
-    st.title("Chatbot Interface")
+    st.title("Sigraph Interface")
 
     # Display chat history
     for message in st.session_state.messages:
@@ -86,22 +86,42 @@ def main():
             st.markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
+        response = send_message(config, prompt)
+        if "response" in response:
+            output_dict = response["response"]
+            if not isinstance(output_dict, dict):
+                st.error("Invalid response format from backend.")
+                return
+            if "defense" not in output_dict or "prosecution" not in output_dict or "final_verdict" not in output_dict:
+                st.error("Response missing required fields.")
+                return
+            defense_message = f"##Defence:\n{output_dict['defense']}"
+            prosecution_message = f"##Prosecution:\n{output_dict['prosecution']}"
+            final_verdict_message = f"##Final Verdict:\n{output_dict['final_verdict']}"
+        else:
+            st.error("Unexpected response format")
+            return
+
         with st.chat_message("assistant"):
-            response = send_message(config, prompt)
+            st.markdown(defense_message)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": defense_message
+            })
 
-            if "response" in response and "output" in response["response"]:
-                output_str = response["response"]["output"]
-                st.markdown(json.loads(output_str).get(
-                    "Answer", "No answer available"))
-                with st.expander("Context Used To Provide Answer", expanded=st.session_state.show_steps):
-                    st.json(json.loads(output_str).get("Context", []))
+        with st.chat_message("assistant"):
+            st.markdown(prosecution_message)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": prosecution_message
+            })
 
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": output_str
-                })
-            else:
-                st.error("Unexpected response format")
+        with st.chat_message("assistant"):
+            st.markdown(final_verdict_message)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": final_verdict_message
+            })
 
 
 if __name__ == "__main__":
