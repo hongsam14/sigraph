@@ -82,12 +82,10 @@ def install_syslog_template_and_index(client: OpenSearch):
 
     # Common ES/OpenSearch API (compatible with OpenSearch 2.x/ES 7.x)
     if not client.indices.exists_index_template(name="syslog-template"):
-        print("Creating index template syslog-template")
         client.indices.put_index_template(name="syslog-template", body=body)
 
     # Check if the index exists, if not create it
     exists = client.indices.exists_alias(name="syslog_index")
-    print(f"Checking if index syslog_index-* exists... == {exists}")
     if not exists:
         print("Creating initial index syslog_index-000001")
         client.indices.create(
