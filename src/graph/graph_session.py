@@ -1,6 +1,8 @@
 """_summary_
-This module contains the GraphSession class, which manages the connection to the Neo4j graph database.
-It provides methods to upsert system provenance objects and retrieve Sigraph nodes and relationships.
+This module contains the GraphSession class,
+which manages the connection to the Neo4j graph database.
+It provides methods to upsert system provenance objects,
+and retrieve Sigraph nodes and relationships.
 """
 
 from typing import Any
@@ -9,11 +11,14 @@ from graph.provenance.type import SystemProvenance
 from graph.graph_model import GraphNode
 from graph.graph_element.element_behavior import GraphElementBehavior
 
+
 class GraphSession:
     """_summary_
     This class manages the graph connection and interactions with the Neo4j database.
-    It provides methods to upsert system provenance objects and retrieve sigraph nodes and relationships.
+    It provides methods to upsert system provenance objects,
+    and retrieve sigraph nodes and relationships.
     """
+
     __client: Graph
     __logger: Any
 
@@ -32,26 +37,26 @@ class GraphSession:
         try:
             self.__client = Graph(f"bolt://{uri}:7687", auth=(user, password))
         except Exception as e:
-            
-            self.__logger.error(f"Failed to connect to Neo4j database at {uri}. Please check your connection settings.")
-            
+            self.__logger.error(
+                f"Failed to connect to Neo4j database at {uri}.\
+                    Please check your connection settings."
+            )
+
             raise ConnectionError(
                 f"Failed to connect to Neo4j database at {uri}. "
                 "Please check your connection settings."
             ) from e
-        
 
     def __del__(self):
         """_summary_
         Destructor for the GraphSession class. Closes the Neo4j connection.
         """
         self.__logger.info("Closing Neo4j connection.")
-        self.__client.close()
-
+        # self.__client.close()
 
     def upsert_system_provenance(
-            self,
-            node: GraphNode,
+        self,
+        node: GraphNode,
     ):
         """_summary_
         Upserts a system provenance object in the Neo4j database.
@@ -75,5 +80,7 @@ class GraphSession:
                 parent_id=node.parent_span_id,
             )
         except Exception as e:
-            self.__logger.error(f"Failed to upsert system provenance for node {node.unit_id}")
+            self.__logger.error(
+                f"Failed to upsert system provenance for node {node.unit_id}"
+            )
             raise e
