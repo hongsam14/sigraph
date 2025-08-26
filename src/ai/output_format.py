@@ -2,8 +2,9 @@
 This module defines the Structured Output Format for the AI agent's responses.
 """
 
-from typing import List
-from pydantic import BaseModel, Field
+from enum import Enum
+from typing import List, Literal, Optional, Annotated
+from pydantic import BaseModel, Field, confloat
 
 ######################################################################
 # Question Prompt Schema
@@ -15,6 +16,92 @@ class EntitiesFromQuestion(BaseModel):
         default_factory=list,
         description="List of entities extracted from the question."
     )
+
+######################################################################
+# Final Structured Output Schema
+######################################################################
+
+# --- Shared enums/aliases ---
+Verb = Literal[
+    "launch","create","write","read","modify","delete","move","copy",
+    "inject","network_connect","http_request","network_request","dns_query",
+    "persist","escalate","disable_security","stop_service",
+    "credential_dump","lateral_move","compress","decompress","encrypt","exfiltrate"
+]
+
+class Verdict(str, Enum):
+    malicious = "Malicious"
+    suspicious = "Suspicious"
+    benign = "Benign"
+    not_enough = "Not enough evidence"
+
+class ConfidenceLevel(str, Enum):
+    low = "Low"
+    medium = "Medium"
+    high = "High"
+
+class BehaviorAction(BaseModel):
+    step: Optional[int] = None
+    actor: str
+    verb: Verb
+    object: str
+    context: Optional[str] = None
+
+class Confidence(BaseModel):
+    level: ConfidenceLevel
+    score: float = Field(..., ge=0.0, le=1.0)
+
+class SimilarityItem(BaseModel):
+    summary: str
+    aspects: List[str] = Field(..., min_length=1)
+    citations: Optional[List[str]] = None
+
+# --- Prosecution only ---
+class FactItem(BaseModel):
+    fact: str
+    rationale: Optional[str] = Field(default=None, description="Why it makes sense (optional)")
+
+class HypothesisItem(BaseModel):
+    hypothesis: str
+    rationale: str
+    discriminators: List[str] = Field(..., min_length=1)  # useful to distinguish
+    rank: Optional[int] = None
+
+class ProposedTestItem(BaseModel):
+    test: str
+    expected_if_malicious: Optional[str] = None
+    expected_if_benign: Optional[str] = None
+    priority: Optional[int] = None
+
+class ProsecutionReport(BaseModel):
+    scope_note: str = Field(..., description="Target/Reference distinction and vision principle clarification")
+    facts: List[FactItem]
+    similarities: Optional[List[SimilarityItem]] = None
+    malicious_hypotheses: List[HypothesisItem] = Field(..., min_length=1)
+    benign_alternatives: Optional[List[HypothesisItem]] = None
+    proposed_tests: Optional[List[ProposedTestItem]] = None
+    behavior_flow: Optional[List[BehaviorAction]] = None
+
+# --- Referee only ---
+CategoryAE = Literal["A","B","C","D","E"]
+
+class CitedEvidenceItem(BaseModel):
+    evidence: str
+    category: CategoryAE
+    citation: Optional[str] = None  # ex: [doc|span]
+
+class Synthesis(BaseModel):
+    agreements: Optional[List[str]] = None
+    disagreements: Optional[List[str]] = None
+    resolution: Optional[str] = None
+
+class RefereeReport(BaseModel):
+    synthesis: Synthesis
+    verdict: Verdict
+    confidence: Confidence
+    cited_evidence: Optional[List[CitedEvidenceItem]] = None   # Target Event related evidence only
+    behavior_flow: Optional[List[BehaviorAction]] = None
+    next_steps: Optional[List[str]] = None
 
 ######################################################################
 #  Stage 1 - Extracting Event Schema (DEPRECATED)

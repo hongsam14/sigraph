@@ -31,8 +31,11 @@ from ai.prompt import (
     QUESTION_PROMPT_HUMAN,
     QUESTION_PROMPT_SYSTEM,
     KNOWLEDGE_GRAPH_QUERY,
-    RAG_PROMPT_SYSTEM,
+    RAG_PROMPT_SYSTEM_DEFENSIVE,
+    RAG_PROMPT_SYSTEM_PROSECUTIVE,
     RAG_PROMPT_HUMAN,
+    RAG_PROMPT_SYSTEM_REFEREE,
+    RAG_PROMPT_HUMAN_REFEREE,
 )
 
 
@@ -175,8 +178,6 @@ class GraphAIAgent:
             )
             self.__logger.info("Neo4j graph connection initialized successfully.")
 
-            # Initialize the vector Store for graph documents
-
             self.__logger.info("Initializing GraphAIAgent complete.")
         except Exception as e:
             self.__logger.error(f"Error initializing GraphAIAgent: {e}")
@@ -225,28 +226,62 @@ class GraphAIAgent:
             )
         return unified_common_report
 
-    async def chat_with_ai(self, question: str) -> str:
+    async def chat_with_ai(self, question: str) -> dict:
         """Chat with the AI model using the provided question."""
         if not question:
             raise ValueError("Question cannot be empty.")
 
         generated_response = self.__full_retriever(question)
 
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", RAG_PROMPT_SYSTEM),
+        defensive_prompt = ChatPromptTemplate.from_messages([
+            ("system", self.__escape_braces(RAG_PROMPT_SYSTEM_DEFENSIVE)),
             ("human", RAG_PROMPT_HUMAN)
         ])
-        rag_chain: RunnableSerializable = (
-            prompt
+
+        prosecutive_prompt = ChatPromptTemplate.from_messages([
+            ("system", self.__escape_braces(RAG_PROMPT_SYSTEM_PROSECUTIVE)),
+            ("human", RAG_PROMPT_HUMAN)
+        ])
+        defensive_rag_chain: RunnableSerializable = (
+            defensive_prompt
             | self.__llm
             | StrOutputParser()
         )
-        result = rag_chain.invoke({
+        prosecutive_rag_chain: RunnableSerializable = (
+            prosecutive_prompt
+            | self.__llm
+            | StrOutputParser()
+        )
+        referee_prompt = ChatPromptTemplate.from_messages([
+            ("system", self.__escape_braces(RAG_PROMPT_SYSTEM_REFEREE)),
+            ("human", RAG_PROMPT_HUMAN_REFEREE)
+        ])
+        defensive_result = defensive_rag_chain.invoke({
             "context": generated_response,
             "question": question,
         })
-        # print(f"Generated response: {result}")
-        return result
+        prosecutive_result = prosecutive_rag_chain.invoke({
+            "context": generated_response,
+            "question": question,
+        })
+        referee_chain: RunnableSerializable = (
+            referee_prompt
+            | self.__llm
+            | StrOutputParser()
+        )
+        result = referee_chain.invoke({
+            "defense": defensive_result,
+            "prosecution": prosecutive_result,
+            "context": generated_response,
+            "question": question,
+        })
+
+        # print all the intermediate results with json format
+        return {
+            "defense": defensive_result,
+            "prosecution": prosecutive_result,
+            "final_verdict": result
+        }
 
     def __split_plain_text_2_doc(self, docs: Iterable[Document]) -> list[Document]:
         text_splitter: RecursiveCharacterTextSplitter = RecursiveCharacterTextSplitter(
@@ -295,11 +330,15 @@ class GraphAIAgent:
         Also, Activate a disabled URL
         """
         if isinstance(node_id, str):
-            unified_id = node_id.lower()
+            unified_id = self.__unify_entity(node_id)
             # Activate a disabled URL
             unified_id = unified_id.replace("[.]", ".")
             return unified_id
         return node_id
+
+    def __unify_entity(self, entity: str) -> str:
+        """Unify the entity to lower case."""
+        return entity.strip().lower()
 
     def __convert_report_to_common__behavior_report(self, text: str) -> str:
         """Chat with the AI model using the provided messages."""
@@ -347,7 +386,9 @@ class GraphAIAgent:
             or not extracted.entities:
             self.__logger.warning("No entities extracted from the question.")
             return result
-        print(f"input system_provenance: {extracted.entities}")
+        # trim the additional spaces and only keep the first word if multiple words
+        extracted.entities = [self.__unify_entity(e) for e in extracted.entities if e]
+        self.__logger.info(f"Extracted entities from question: {extracted.entities}")
         for entity in extracted.entities:
             response = self.__graph.query(
                 KNOWLEDGE_GRAPH_QUERY,
@@ -355,7 +396,7 @@ class GraphAIAgent:
             )
             if response:
                 result += "\n".join([r['OUTPUT'] for r in response])
-        print(f"Graph retrieval result: {result}")
+        self.__logger.info(f"Graph retrieval result: {result}")
         return result
 
     def __full_retriever(self, question: str):
