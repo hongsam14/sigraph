@@ -114,3 +114,6 @@ venv.bak/
 .mypy_cache/
 
 .idea/*
+
+# sample reports
+sample_reports/*
