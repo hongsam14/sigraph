@@ -14,6 +14,8 @@ from graph.graph_model import GraphNode
 from graph.graph_session import GraphSession
 from ai.ai_agent import GraphAIAgent
 
+import traceback
+
 class DBAPI:
     """Database API for interacting with the System Provenance database."""
     graph_session: GraphSession
@@ -128,7 +130,7 @@ class AIAPI:
             return str(ve)
         except Exception as e:
             # Log the error because except value error, sould be logged.
-            self.__logger.warning(f"Error processing report: {str(e)}")
+            self.__logger.warning(f"Error processing report: {traceback.format_exc()}")
             return str(e)
 
     async def post_behavior_to_analyze_with_ai(self, query: QueryRequest = Body(...)):
