@@ -61,7 +61,8 @@ class GraphAIAgent:
         Exception: llm: when there is an error initializing the AI model or graph connection
     """
     __logger: Any
-    __llm: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
+    __llm_solid: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
+    __llm_flexible: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
     __llm_transformer: LLMGraphTransformer
     __graph: Neo4jGraph
     __vector_index: Neo4jVector
@@ -101,12 +102,17 @@ class GraphAIAgent:
             if ai_model.startswith("gemini"):
                 self.__logger.info("Using Google Gemini API for LLM.")
                 # using google-gemini-api
-                self.__llm = ChatGoogleGenerativeAI(
+                self.__llm_solid = ChatGoogleGenerativeAI(
                     model=ai_model,
                     temperature=0.0,
                     google_api_key=app_config.get_ai_api_key(),
                 )
-                self.__llm_transformer = LLMGraphTransformer(llm=self.__llm)
+                self.__llm_flexible = ChatGoogleGenerativeAI(
+                    model=ai_model,
+                    temperature=0.2,
+                    google_api_key=app_config.get_ai_api_key(),
+                )
+                self.__llm_transformer = LLMGraphTransformer(llm=self.__llm_solid)
 
                 # instance to vectorize the documents using Google Generative AI embeddings
                 self.__vector_index = Neo4jVector.from_existing_graph(
@@ -127,10 +133,13 @@ class GraphAIAgent:
             elif ai_model.startswith("gpt") and not ai_model.startswith("gpt-oss"):
                 self.__logger.info("Using OpenAI API for LLM.")
                 # using openai api
-                self.__llm = ChatOpenAI(
+                self.__llm_solid = ChatOpenAI(
                     model=ai_model, temperature=0.0, api_key=app_config.get_ai_api_key()
                 )
-                self.__llm_transformer = LLMGraphTransformer(llm=self.__llm)
+                self.__llm_flexible = ChatOpenAI(
+                    model=ai_model, temperature=0.2, api_key=app_config.get_ai_api_key()
+                )
+                self.__llm_transformer = LLMGraphTransformer(llm=self.__llm_solid)
 
                 # instance to vectorize the documents using OpenAI embeddings
                 self.__vector_index = Neo4jVector.from_existing_graph(
@@ -150,10 +159,13 @@ class GraphAIAgent:
             else:
                 self.__logger.info("Using Ollama API for LLM.")
                 # using local llm model
-                self.__llm = ChatOllama(
+                self.__llm_solid = ChatOllama(
                     model=ai_model, temperature=0.0, disable_streaming=False
                 )
-                self.__llm_transformer = LLMGraphTransformer(llm=self.__llm)
+                self.__llm_flexible = ChatOllama(
+                    model=ai_model, temperature=0.2, disable_streaming=False
+                )
+                self.__llm_transformer = LLMGraphTransformer(llm=self.__llm_solid)
 
                 # instance to vectorize the documents using Ollama embeddings
                 self.__vector_index = Neo4jVector.from_existing_graph(
@@ -249,12 +261,12 @@ class GraphAIAgent:
         ])
         defensive_rag_chain: RunnableSerializable = (
             defensive_prompt
-            | self.__llm
+            | self.__llm_solid
             | StrOutputParser()
         )
         prosecutive_rag_chain: RunnableSerializable = (
             prosecutive_prompt
-            | self.__llm
+            | self.__llm_solid
             | StrOutputParser()
         )
         referee_prompt = ChatPromptTemplate.from_messages([
@@ -271,7 +283,7 @@ class GraphAIAgent:
         })
         referee_chain: RunnableSerializable = (
             referee_prompt
-            | self.__llm
+            | self.__llm_solid
             | StrOutputParser()
         )
         result = referee_chain.invoke({
@@ -302,7 +314,7 @@ class GraphAIAgent:
 
         rag_chain: RunnableSerializable = (
             rag_prompt
-            | self.__llm
+            | self.__llm_solid
             | StrOutputParser()
         )
 
@@ -399,7 +411,8 @@ class GraphAIAgent:
         # })
         
         court = AICourt(
-            self.__llm,
+            self.__llm_solid,
+            self.__llm_flexible,
             3,
             (
                 STAGE_1_SYSTEM_PROMPT,
@@ -432,7 +445,7 @@ class GraphAIAgent:
             ("system", QUESTION_PROMPT_SYSTEM),
             ("human", QUESTION_PROMPT_HUMAN)
         ])
-        question_chain = question_prompt | self.__llm.with_structured_output(EntitiesFromQuestion)
+        question_chain = question_prompt | self.__llm_solid.with_structured_output(EntitiesFromQuestion)
         extracted = question_chain.invoke({"question": question})
         # Check generated response is valid
         if not extracted \

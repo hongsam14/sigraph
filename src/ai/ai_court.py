@@ -13,16 +13,19 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from ai.prompt import DEBATE_PROMPT_SYSTEM, DEBATE_PROMPT_HUMAN
 
 class AICourt:
-    __llm: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
+    __llm_solid: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
+    __llm_flexible: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
     __debaters: list[AIDebater]
     __cycle: int
 
     def __init__(self,
-                 llm: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama,
+                 llm_solid: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama,
+                 llm_flexible: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama,
                  cycle: int = 3,
                  *args: tuple[str, str]
                 ):
-        self.__llm = llm
+        self.__llm_solid = llm_solid
+        self.__llm_flexible = llm_flexible
 
         # prepare the debate prompts
         self.__debaters = []
@@ -30,7 +33,12 @@ class AICourt:
             print(f"Number of prompts: {len(args)}")
             raise ValueError("At least two prompts are required.")
         for i, prompt in enumerate(args):
-            self.__debaters.append(AIDebater(self.__llm, i, prompt))
+            if i == 0:
+                # the first debater is the most flexible one
+                self.__debaters.append(AIDebater(self.__llm_flexible, i, prompt))
+            else:
+                # other debaters are more solid ones
+                self.__debaters.append(AIDebater(self.__llm_solid, i, prompt))
 
         # number of debate cycles
         self.__cycle = cycle
@@ -74,7 +82,7 @@ class AICourt:
             for key, val in result.items():
                 print(f"{key}:\n\{val}\n-------------------\n\n")
 
-        return result
+        return result[self.__debaters[1].debater_key()]
 
 
 class AIDebater:
