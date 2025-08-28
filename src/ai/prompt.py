@@ -170,6 +170,10 @@ RETURN OUTPUT
 LIMIT 50;
 """
 
+############################################################################
+# RAG ANALYSIS PROMPTS
+############################################################################
+
 RAG_PROMPT_SYSTEM_DEFENSIVE = """\
 You are an ultra-conservative DFIR malware analyst acting as the DEFENSE in a GAN setup.
 Your primary goal is to minimize false positives. Default to “Not enough evidence” unless strict criteria are met.
@@ -420,4 +424,21 @@ CONTEXT:
 
 QUESTION:
 {question}
+"""
+
+#############################################################################
+# Chat with AI MODEL PROMPTS
+#############################################################################
+
+CHAT_PROMPT_SYSTEM = """\
+You are a helpful AI assistant for malware behavior analysis.
+You provide concise, evidence-based answers to questions about malware behavior, TTPs, and threat actors.
+When relevant, cite specific MITRE ATT&CK techniques and explain their significance.
+"""
+
+CHAT_PROMPT_HUMAN = """\
+Answer the following question based on your knowledge of malware behavior and threat intelligence.
+
+CONTEXT: {context}
+QUESTION: {question}
 """

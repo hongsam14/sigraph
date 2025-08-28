@@ -1,7 +1,10 @@
+import json
 import streamlit as st
 from app.config import AppConfig
 from app.streamlit.utils import send_message
-import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Custom CSS to reduce sidebar width and adjust padding
 st.markdown("""
@@ -47,6 +50,8 @@ def main():
             key="backend_url",
             label_visibility="collapsed"
         )
+
+        print(f"Using backend URL: {backend_url}")
         
         # Checkbox in a more compact form
         st.session_state.show_steps = st.checkbox(
@@ -92,35 +97,19 @@ def main():
             if not isinstance(output_dict, dict):
                 st.error("Invalid response format from backend.")
                 return
-            if "defense" not in output_dict or "prosecution" not in output_dict or "final_verdict" not in output_dict:
+            if "answer" not in output_dict:
                 st.error("Response missing required fields.")
                 return
-            defense_message = f"##Defence:\n{output_dict['defense']}"
-            prosecution_message = f"##Prosecution:\n{output_dict['prosecution']}"
-            final_verdict_message = f"##Final Verdict:\n{output_dict['final_verdict']}"
+            answer_message = f"##Answer:\n{output_dict['answer']}"
         else:
             st.error("Unexpected response format")
             return
 
         with st.chat_message("assistant"):
-            st.markdown(defense_message)
+            st.markdown(answer_message)
             st.session_state.messages.append({
                 "role": "assistant",
-                "content": defense_message
-            })
-
-        with st.chat_message("assistant"):
-            st.markdown(prosecution_message)
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": prosecution_message
-            })
-
-        with st.chat_message("assistant"):
-            st.markdown(final_verdict_message)
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": final_verdict_message
+                "content": answer_message
             })
 
 

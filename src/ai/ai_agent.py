@@ -36,6 +36,8 @@ from ai.prompt import (
     RAG_PROMPT_HUMAN,
     RAG_PROMPT_SYSTEM_REFEREE,
     RAG_PROMPT_HUMAN_REFEREE,
+    CHAT_PROMPT_HUMAN,
+    CHAT_PROMPT_SYSTEM,
 )
 
 
@@ -226,8 +228,8 @@ class GraphAIAgent:
             )
         return unified_common_report
 
-    async def chat_with_ai(self, question: str) -> dict:
-        """Chat with the AI model using the provided question."""
+    async def analyze_behavior_with_ai(self, question: str) -> dict:
+        """Analyze behavior with AI using the provided question."""
         if not question:
             raise ValueError("Question cannot be empty.")
 
@@ -281,6 +283,34 @@ class GraphAIAgent:
             "defense": defensive_result,
             "prosecution": prosecutive_result,
             "final_verdict": result
+        }
+        
+    async def chat_with_ai(self, question: str) -> dict:
+        """Chat with the AI model using the provided question."""
+        if not question:
+            raise ValueError("Question cannot be empty.")
+
+        generated_response = self.__full_retriever(question)
+
+        rag_prompt = ChatPromptTemplate.from_messages([
+            ("system", self.__escape_braces(CHAT_PROMPT_SYSTEM)),
+            ("human", CHAT_PROMPT_HUMAN)
+        ])
+
+        rag_chain: RunnableSerializable = (
+            rag_prompt
+            | self.__llm
+            | StrOutputParser()
+        )
+
+        result = rag_chain.invoke({
+            "context": generated_response,
+            "question": question,
+        })
+
+        # print all the intermediate results with json format
+        return {
+            "answer": result
         }
 
     def __split_plain_text_2_doc(self, docs: Iterable[Document]) -> list[Document]:

@@ -104,32 +104,51 @@ class AIAPI:
         )
 
         self.api_router.add_api_route(
-            "/query",
-            self.post_query_to_ai,
+            "/analyze",
+            self.post_behavior_to_analyze_with_ai,
             methods=["POST"],
-            summary="Post query to AI",
-            description="Send a query to the AI agent for response."
+            summary="Post behavior to AI",
+            description="Send a behavior query to the AI agent for analysis."
         )
-
+        
+        self.api_router.add_api_route(
+            "/chat",
+            self.post_chat_with_ai,
+            methods=["POST"],
+            summary="Chat with AI",
+            description="Chat with the AI model using the provided question."
+        )
+        
     async def post_report_to_ai(self, report: str = Body(..., media_type="text/plain")):
         """Post a report to the knowledge graph."""
         try:
             val = await self.ai_agent.post_report_to_graph(report)
-            return {"status": "ok", "response": val}
+            return val
         except ValueError as ve:
-            return {"status": "error", "message": str(ve)}
+            return str(ve)
         except Exception as e:
             # Log the error because except value error, sould be logged.
             self.__logger.warning(f"Error processing report: {str(e)}")
-            return {"status": "error", "message": str(e)}
+            return str(e)
 
-    async def post_query_to_ai(self, query: QueryRequest = Body(...)):
+    async def post_behavior_to_analyze_with_ai(self, query: QueryRequest = Body(...)):
         """Post a query to the Knowledge Graph."""
         try:
-            response = await self.ai_agent.chat_with_ai(query.question)
+            response = await self.ai_agent.analyze_behavior_with_ai(query.question)
             return {"status": "ok", "response": response}
         except ValueError as ve:
             return {"status": "error", "message": str(ve)}
         except Exception as e:
             self.__logger.warning(f"Error processing query: {str(e)}")
+            return {"status": "error", "message": str(e)}
+        
+    async def post_chat_with_ai(self, question: QueryRequest = Body(...)):
+        """Chat with the AI model using the provided question."""
+        try:
+            response = await self.ai_agent.chat_with_ai(question.question)
+            return {"status": "ok", "response": response}
+        except ValueError as ve:
+            return {"status": "error", "message": str(ve)}
+        except Exception as e:
+            self.__logger.warning(f"Error processing chat: {str(e)}")
             return {"status": "error", "message": str(e)}
