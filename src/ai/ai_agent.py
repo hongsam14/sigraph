@@ -22,6 +22,7 @@ from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.config import AppConfig
+from ai.ai_court import AICourt
 from ai.output_format import EntitiesFromQuestion
 from ai.prompt import (
     STAGE_0_SYSTEM_PROMPT,
@@ -206,6 +207,8 @@ class GraphAIAgent:
 
         print(f"Converted common report: {unified_common_report}")
 
+        return unified_common_report
+
         # then convert the common report to graph documents
         # docs = [Document(page_content=text, metadata={"source": "report"})]
         # documents: list[Document] = self.__split_plain_text_2_doc(docs)
@@ -373,30 +376,51 @@ class GraphAIAgent:
     def __convert_report_to_common__behavior_report(self, text: str) -> str:
         """Chat with the AI model using the provided messages."""
 
-        stage_0_prompt = ChatPromptTemplate.from_messages([
-            ("system", STAGE_0_SYSTEM_PROMPT),
-            ("human", STAGE_0_HUMAN_PROMPT)
-        ])
+        # stage_0_prompt = ChatPromptTemplate.from_messages([
+        #     ("system", STAGE_0_SYSTEM_PROMPT),
+        #     ("human", STAGE_0_HUMAN_PROMPT)
+        # ])
 
-        overview_chain = stage_0_prompt | self.__llm | StrOutputParser()
+        # overview_chain = stage_0_prompt | self.__llm | StrOutputParser()
 
-        stage_1_prompt = ChatPromptTemplate.from_messages([
-            ("system", STAGE_1_SYSTEM_PROMPT),
-            ("human", STAGE_1_HUMAN_PROMPT)
-        ])
+        # stage_1_prompt = ChatPromptTemplate.from_messages([
+        #     ("system", STAGE_1_SYSTEM_PROMPT),
+        #     ("human", STAGE_1_HUMAN_PROMPT)
+        # ])
 
-        indicate_chain = stage_1_prompt | self.__llm | StrOutputParser()
+        # indicate_chain = stage_1_prompt | self.__llm | StrOutputParser()
 
-        indicate_entities = indicate_chain.invoke({
+        # indicate_entities = indicate_chain.invoke({
+        #     "report_text": text,
+        # })
+
+        # overview_entities = overview_chain.invoke({
+        #     "report_text": text,
+        # })
+        
+        court = AICourt(
+            self.__llm,
+            3,
+            (
+                STAGE_1_SYSTEM_PROMPT,
+                STAGE_1_HUMAN_PROMPT
+            ),
+            (
+                STAGE_1_SYSTEM_PROMPT,
+                STAGE_1_HUMAN_PROMPT
+            ),
+            (
+                STAGE_1_SYSTEM_PROMPT,
+                STAGE_1_HUMAN_PROMPT
+            ),
+        )
+
+        refined_report = court.debate({
             "report_text": text,
         })
 
-        overview_entities = overview_chain.invoke({
-            "report_text": text,
-        })
-
-        ## Combine the overview and indicate entities into a single output
-        refined_report = overview_entities + "\n\n" + indicate_entities
+        # ## Combine the overview and indicate entities into a single output
+        # refined_report = overview_entities + "\n\n" + indicate_entities
 
         return refined_report
 

@@ -427,6 +427,30 @@ QUESTION:
 """
 
 #############################################################################
+# DEBATE PROMPTS
+#############################################################################
+
+DEBATE_PROMPT_SYSTEM = """\
+You are participating in a structured debate with other AI agents.
+Using the reasoning from other agents as additional advice, your job is to refine and improve your previous answer.
+
+Your past roles are as follows:
+{ORIGINAL_SYSTEM_PROMPT}
+"""
+
+DEBATE_PROMPT_HUMAN = """\
+Using the answers from the other agents as additional advice, you should improve and refine your answer.
+
+Your previous answer:
+{previous_answer}
+
+The answers from the other agents:
+{other_answers}
+
+Your past missions are as follows:
+"""
+
+#############################################################################
 # Chat with AI MODEL PROMPTS
 #############################################################################
 
