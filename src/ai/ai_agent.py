@@ -4,7 +4,7 @@ It also interacts with vector store and a Neo4j graph database.
 It allows for the conversion of plain text reports into graph documents,
 and enables querying the graph database using natural language questions.
 """
-
+import asyncio
 from typing import Iterable, Any
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_core.documents import Document
@@ -63,6 +63,7 @@ class GraphAIAgent:
     __logger: Any
     __llm_solid: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
     __llm_flexible: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
+    __llm_runtime: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
     __llm_transformer: LLMGraphTransformer
     __graph: Neo4jGraph
     __vector_index: Neo4jVector
@@ -96,6 +97,7 @@ class GraphAIAgent:
             self.__chunk_size = ai_config["chunk_size"]
             self.__overlap = ai_config["overlap"]
             ai_model:str = ai_config["model"]
+            realtime_model:str = ai_config["realtime_model"]
 
             self.__logger.info("Initializing GraphAIAgent with AI model and configuration.")
 
@@ -112,6 +114,12 @@ class GraphAIAgent:
                     temperature=0.2,
                     google_api_key=app_config.get_ai_api_key(),
                 )
+                self.__llm_runtime = ChatGoogleGenerativeAI(
+                    model=realtime_model,
+                    temperature=0.0,
+                    google_api_key=app_config.get_ai_api_key(),
+                )
+
                 self.__llm_transformer = LLMGraphTransformer(llm=self.__llm_solid)
 
                 # instance to vectorize the documents using Google Generative AI embeddings
@@ -139,6 +147,10 @@ class GraphAIAgent:
                 self.__llm_flexible = ChatOpenAI(
                     model=ai_model, temperature=0.2, api_key=app_config.get_ai_api_key()
                 )
+                self.__llm_runtime = ChatOpenAI(
+                    model=realtime_model, temperature=0.0, api_key=app_config.get_ai_api_key()
+                )
+                
                 self.__llm_transformer = LLMGraphTransformer(llm=self.__llm_solid)
 
                 # instance to vectorize the documents using OpenAI embeddings
@@ -165,6 +177,10 @@ class GraphAIAgent:
                 self.__llm_flexible = ChatOllama(
                     model=ai_model, temperature=0.2, disable_streaming=False
                 )
+                self.__llm_runtime = ChatOllama(
+                    model=realtime_model, temperature=0.0, disable_streaming=False
+                )
+
                 self.__llm_transformer = LLMGraphTransformer(llm=self.__llm_solid)
 
                 # instance to vectorize the documents using Ollama embeddings
@@ -261,31 +277,36 @@ class GraphAIAgent:
         ])
         defensive_rag_chain: RunnableSerializable = (
             defensive_prompt
-            | self.__llm_solid
+            | self.__llm_runtime
             | StrOutputParser()
         )
         prosecutive_rag_chain: RunnableSerializable = (
             prosecutive_prompt
-            | self.__llm_solid
+            | self.__llm_runtime
             | StrOutputParser()
         )
         referee_prompt = ChatPromptTemplate.from_messages([
             ("system", self.__escape_braces(RAG_PROMPT_SYSTEM_REFEREE)),
             ("human", RAG_PROMPT_HUMAN_REFEREE)
         ])
-        defensive_result = defensive_rag_chain.invoke({
-            "context": generated_response,
-            "question": question,
-        })
-        prosecutive_result = prosecutive_rag_chain.invoke({
-            "context": generated_response,
-            "question": question,
-        })
+
+        defensive_result, prosecutive_result = await asyncio.gather(
+            defensive_rag_chain.ainvoke({
+                "context": generated_response,
+                "question": question,
+            }),
+            prosecutive_rag_chain.ainvoke({
+                "context": generated_response,
+                "question": question,
+            })
+        )
+
         referee_chain: RunnableSerializable = (
             referee_prompt
-            | self.__llm_solid
+            | self.__llm_runtime
             | StrOutputParser()
         )
+
         result = referee_chain.invoke({
             "defense": defensive_result,
             "prosecution": prosecutive_result,
@@ -299,7 +320,7 @@ class GraphAIAgent:
             "prosecution": prosecutive_result,
             "final_verdict": result
         }
-        
+
     async def chat_with_ai(self, question: str) -> dict:
         """Chat with the AI model using the provided question."""
         if not question:

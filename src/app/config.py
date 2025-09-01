@@ -21,6 +21,7 @@ class AppConfig:
         self.backend_port = os.getenv("BACKEND_PORT", "8765")
         
         self.ai_model = os.getenv("AI_MODEL", "")
+        self.ai_realtime_model = os.getenv("AI_REALTIME_MODEL", "")
         self.ai_chunk_size = int(os.getenv("AI_CHUNK_SIZE", 400))
         self.ai_overlap = int(os.getenv("AI_OVERLAP", 40))
         self.ai_api_key: SecretStr = SecretStr(os.getenv("AI_API_KEY", ""))
@@ -54,6 +55,7 @@ class AppConfig:
         """Gets AI configuration"""
         return {
             "model": self.ai_model,
+            "realtime_model": self.ai_realtime_model,
             "chunk_size": self.ai_chunk_size,
             "overlap": self.ai_overlap,
         }

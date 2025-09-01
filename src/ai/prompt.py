@@ -16,17 +16,18 @@ You are a DFIR executive-summary editor. From the REPORT_TEXT, extract metadata 
 Rules: use only stated facts; if missing, write “N/A”; plain text only; compress into max 3 lines: Meta / Summary / Key; keep numbers/dates/names verbatim; drop background/marketing.
 
 Output template (fill values, ≤300 chars total):
-Title: {{report title}}
-Author: {{author}}
-Date: {{date}}
-Source: {{source}}
-Group: {{group}}
-Family: {{family}}
-Summary: {{one-sentence overview}}
+Title: {report title}
+Author: {author}
+Date: {date}
+Source: {source}
+Group: {group}
+Family: {family}
+Summary: {one-sentence overview}
 Key:
     1){{point}}
     2){{point}}
     3){{point(optional)}}
+    ...
 """
 
 STAGE_0_HUMAN_PROMPT = """\
@@ -100,6 +101,7 @@ ATOMIC SPLIT RULES (ENFORCED)
 SELF-CHECK before finalizing
 - Do all lines appear under “Behavior Flow:” with 1), 2), ... numbering?
 - Does each line contain exactly ONE whitelist verb?
+- Be careful about changing objects like url and path. Objects must remain unchanged.
 - Are all lines starting with a non-generic actor (group/family or concrete process name)?
 - Are “download-like” actions split into (http_request|network_request) + create (or + inject for fileless)?
 - Are literal values preserved verbatim?
