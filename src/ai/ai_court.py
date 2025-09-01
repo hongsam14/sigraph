@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+from typing import Any
 from collections.abc import Mapping
 from operator import itemgetter
 from langchain_core.output_parsers import StrOutputParser
@@ -13,24 +14,27 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from ai.prompt import DEBATE_PROMPT_SYSTEM, DEBATE_PROMPT_HUMAN
 
 class AICourt:
+    __logger: Any
     __llm_solid: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
     __llm_flexible: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama
     __debaters: list[AIDebater]
     __cycle: int
 
     def __init__(self,
+                 logger: Any,
                  llm_solid: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama,
                  llm_flexible: ChatGoogleGenerativeAI | ChatOpenAI | ChatOllama,
                  cycle: int = 3,
                  *args: tuple[str, str]
                 ):
+        self.__logger = logger
         self.__llm_solid = llm_solid
         self.__llm_flexible = llm_flexible
 
         # prepare the debate prompts
         self.__debaters = []
         if len(args) < 2:
-            print(f"Number of prompts: {len(args)}")
+            self.__logger.warning(f"Number of prompts: {len(args)}")
             raise ValueError("At least two prompts are required.")
         for i, prompt in enumerate(args):
             if i == 0:
@@ -43,7 +47,7 @@ class AICourt:
         # number of debate cycles
         self.__cycle = cycle
 
-    def debate(self, input:dict):
+    async def debate(self, input:dict)->str:
         # initial prompts
         # Initial prompt means the first response from each_agent based on the same context and question.
         # Get the initial chains from each debater
@@ -80,7 +84,7 @@ class AICourt:
             result = debate_parallel_prompts.invoke(input_dbt)
 
             for key, val in result.items():
-                print(f"{key}:\n\{val}\n-------------------\n\n")
+                self.__logger.debug(f"{key}:\n\{val}\n-------------------\n\n")
 
         return result[self.__debaters[1].debater_key()]
 

@@ -228,15 +228,11 @@ class GraphAIAgent:
             raise ValueError("Input text cannot be empty.")
 
         # first convert the report to a common behavior report.
-        common_report = self.__convert_report_to_common__behavior_report(text)
+        common_report = await self.__convert_report_to_common__behavior_report(text)
 
         # Unify entities using to lower.
         unified_common_report = common_report.lower()
-
-        print(f"Converted common report: {unified_common_report}")
-
-        return unified_common_report
-
+        
         # then convert the common report to graph documents
         # docs = [Document(page_content=text, metadata={"source": "report"})]
         # documents: list[Document] = self.__split_plain_text_2_doc(docs)
@@ -265,7 +261,7 @@ class GraphAIAgent:
             raise ValueError("Question cannot be empty.")
 
         generated_response = self.__full_retriever(question)
-
+        
         defensive_prompt = ChatPromptTemplate.from_messages([
             ("system", self.__escape_braces(RAG_PROMPT_SYSTEM_DEFENSIVE)),
             ("human", RAG_PROMPT_HUMAN)
@@ -406,32 +402,30 @@ class GraphAIAgent:
         """Unify the entity to lower case."""
         return entity.strip().lower()
 
-    def __convert_report_to_common__behavior_report(self, text: str) -> str:
+    async def __convert_report_to_common__behavior_report(self, text: str) -> str:
         """Chat with the AI model using the provided messages."""
 
-        # stage_0_prompt = ChatPromptTemplate.from_messages([
-        #     ("system", STAGE_0_SYSTEM_PROMPT),
-        #     ("human", STAGE_0_HUMAN_PROMPT)
-        # ])
+        overview_court = AICourt(
+            self.__logger,
+            self.__llm_solid,
+            self.__llm_flexible,
+            3,
+            (
+                STAGE_0_SYSTEM_PROMPT,
+                STAGE_0_HUMAN_PROMPT
+            ),
+            (
+                STAGE_0_SYSTEM_PROMPT,
+                STAGE_0_HUMAN_PROMPT
+            ),
+            (
+                STAGE_0_SYSTEM_PROMPT,
+                STAGE_0_HUMAN_PROMPT
+            ),
+        )
 
-        # overview_chain = stage_0_prompt | self.__llm | StrOutputParser()
-
-        # stage_1_prompt = ChatPromptTemplate.from_messages([
-        #     ("system", STAGE_1_SYSTEM_PROMPT),
-        #     ("human", STAGE_1_HUMAN_PROMPT)
-        # ])
-
-        # indicate_chain = stage_1_prompt | self.__llm | StrOutputParser()
-
-        # indicate_entities = indicate_chain.invoke({
-        #     "report_text": text,
-        # })
-
-        # overview_entities = overview_chain.invoke({
-        #     "report_text": text,
-        # })
-        
-        court = AICourt(
+        indicate_court = AICourt(
+            self.__logger,
             self.__llm_solid,
             self.__llm_flexible,
             3,
@@ -449,12 +443,13 @@ class GraphAIAgent:
             ),
         )
 
-        refined_report = court.debate({
-            "report_text": text,
-        })
+        overview_report, indicate_report = await asyncio.gather(
+            overview_court.debate({"report_text": text}),
+            indicate_court.debate({"report_text": text}),
+            )
 
-        # ## Combine the overview and indicate entities into a single output
-        # refined_report = overview_entities + "\n\n" + indicate_entities
+        ## Combine the overview and indicate entities into a single output
+        refined_report = overview_report + "\n\n" + indicate_report
 
         return refined_report
 
@@ -492,6 +487,10 @@ class GraphAIAgent:
         if graph_data == "":
             graph_data = "No relevant graph data found."
         vector_data = [doc.page_content for doc in self.__vectorstore_retrieval.invoke(question)]
+        
+        for doc in vector_data:
+            self.__logger.debug(f"Vector store retrieved document content:\n{doc}\n-------------------\n\n")
+        
         combined_data = f"""\
 Graph Data:
 {graph_data}
