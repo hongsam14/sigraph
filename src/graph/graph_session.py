@@ -5,7 +5,7 @@ It provides methods to upsert system provenance objects,
 and retrieve Sigraph nodes and relationships.
 """
 
-from typing import Any
+from typing import Any, Optional
 from py2neo import Graph
 from graph.provenance.type import SystemProvenance
 from graph.graph_model import GraphNode
@@ -71,6 +71,9 @@ class GraphSession:
         self.__logger.info(f"Upserting system provenance for node {node.unit_id}")
         try:
             sp_value: SystemProvenance = SystemProvenance(node.system_provenance)
+            psp_value: Optional[SystemProvenance] = None
+            if node.parent_system_provenance is not None:
+                psp_value = SystemProvenance(node.parent_system_provenance)
             # Create or update the node in the database
             GraphElementBehavior.upsert_systemprovenance(
                 graph_client=self.__client,
@@ -78,9 +81,10 @@ class GraphSession:
                 related_span_id=node.span_id,
                 system_provenance=sp_value,
                 parent_id=node.parent_span_id,
+                parent_system_provenance=psp_value
             )
         except Exception as e:
             self.__logger.error(
-                f"Failed to upsert system provenance for node {node.unit_id}"
+                f"Failed to upsert system provenance for node {node.unit_id} {str(e)}"
             )
             raise e

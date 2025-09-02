@@ -120,33 +120,30 @@ class ArtifactExtension:
         )
     
     @staticmethod
-    def from_parentID(parent_id: str) -> Artifact:
+    def from_parent_action(parent_action: SystemProvenance) -> Artifact:
         """_summary_
-        Create an Artifact instance from a parent ID.
+        Create an Artifact instance from a parent action.
 
         Args:
-            parent_id (str): The parent ID to create the Artifact from.
+            parent_action (SystemProvenance): The parent action to create the Artifact from.
 
         Returns:
-            provenance.artifact.Artifact: An instance of Artifact with the parent ID as the name and PROCESS as the type.
-        
+            provenance.artifact.Artifact: An instance of Artifact with the parent action's ID as the name and PROCESS as the type.
+
         Raises:
-            ValueError: If the parent_id is empty.
-        
+            ValueError: If the parent_action is empty.
+
         The reason why this method is only for PROCESS is that
         Actor typed artifacts do not have children.
-        So we do not need to create an Actor Artifact from a parent ID.
+        So we do not need to create an Actor Artifact from a parent action.
         """
-        if not parent_id:
-            raise provenance_exceptions.InvalidInputException("Parent ID cannot be empty", ("parent_id", type(parent_id).__name__))
-        if not isinstance(parent_id, str):
-            raise provenance_exceptions.InvalidInputException("Parent ID must be a string", ("parent_id", type(parent_id).__name__))
-        if len(parent_id) == 0:
-            raise provenance_exceptions.InvalidInputException("Parent ID cannot be empty", ("parent_id", type(parent_id).__name__))
-        return provenance_type.Artifact(
-            name=parent_id,
-            artifact_type= TypeExtension.from_string_to_artifact_type("PROCESS")
-        )
+        if not parent_action:
+            raise provenance_exceptions.InvalidInputException("Parent action cannot be empty", ("parent_action", type(parent_action).__name__))
+        if not isinstance(parent_action, SystemProvenance):
+            raise provenance_exceptions.InvalidInputException("Parent action must be a SystemProvenance", ("parent_action", type(parent_action).__name__))
+        tokens: list[str] = parent_action.split("@")
+        action: str = "@".join(tokens[0:2])
+        return ArtifactExtension.from_systemprovenance(SystemProvenance(action))
 
 
 class ActorExtension:
@@ -180,7 +177,7 @@ class ActorExtension:
             raise provenance_exceptions.InvalidInputException("Data is not in the expected format", ("data", "[artifact_name]@[artifact_type]@[action_type]@[actor_type]"))
         ## only get last 2 tokens. and use else to get the artifact.
         artifactElem: SystemProvenance = SystemProvenance("@".join(tokens[0:-2]))
-        tokens: list[str] = tokens[-2:]
+        tokens = tokens[-2:]
         ## check if the tokens are valid.
         if not all(tokens):
             raise provenance_exceptions.InvalidInputException("Data contains empty tokens", ("data", "[artifact_name]@[artifact_type]@[action_type]@[actor_type]"))

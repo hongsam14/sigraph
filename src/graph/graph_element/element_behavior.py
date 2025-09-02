@@ -104,6 +104,7 @@ class GraphElementBehavior:
         parent_id: Optional[str],
         related_span_id: str,
         system_provenance: SystemProvenance,
+        parent_system_provenance: Optional[SystemProvenance],
     ):
         """_summary_
         Convert a SystemProvenance instance to a graph element.
@@ -143,7 +144,7 @@ class GraphElementBehavior:
             )
             
             if exist_node and exist_node.related_span_ids:
-                related_span_ids: list[str] = exist_node.related_span_ids
+                related_span_ids = exist_node.related_span_ids
                 
             ## append the new related_span_id to the existing related_span_ids
             if related_span_id and related_span_id not in related_span_ids:
@@ -156,9 +157,9 @@ class GraphElementBehavior:
             )
 
             ## create an parent process artifact
-            if parent_id is not None:
-                parent_artifact: Artifact = ArtifactExtension.from_parentID(parent_id)
-                
+            if parent_id is not None and parent_system_provenance is not None:
+                parent_artifact: Artifact = ArtifactExtension.from_parent_action(parent_system_provenance)
+
                 ## create parent artifact node or use existing one
                 exist_parent_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
                     graph_client, unit_id, parent_artifact
@@ -169,7 +170,7 @@ class GraphElementBehavior:
                     parent_node: SigraphNode = exist_parent_node
                 else:
                     ## if the parent node does not exist, create a new one
-                    parent_node: SigraphNode = SigraphNode(
+                    parent_node = SigraphNode(
                         unit_id=unit_id,
                         artifact=parent_artifact,
                     )

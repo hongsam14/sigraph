@@ -11,4 +11,4 @@ class InvalidInputException(ProvenanceException):
     """Exception raised for invalid input data."""
 
     def __init__(self, message: str, dest: tuple[str, ...]):
-        super().__init__(f"Invalid input in the provenance system:\n\t{message}. The input data must be {dest}")
+        super().__init__(f"the provenance system:\n\t{message}. The input data must be {dest}")

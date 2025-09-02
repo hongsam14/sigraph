@@ -30,7 +30,8 @@ if pydantic.VERSION.startswith("2."):
         span_id: str
         system_provenance: str
         parent_span_id: Optional[str] = None
-        
+        parent_system_provenance: Optional[str] = None
+
         model_config = {
             "title": "GraphNode",
             "arbitrary_types_allowed": True,
@@ -57,6 +58,7 @@ else:
         span_id: str
         system_provenance: SystemProvenance
         parent_span_id: Optional[str] = None
+        parent_system_provenance: Optional[SystemProvenance] = None
 
         class Config:
             """_summary_
