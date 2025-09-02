@@ -33,6 +33,14 @@ def install_syslog_template_and_index(client: OpenSearch):
         {
             "raw_data_strings": {
                 "path_match": "raw_data.*",
+                "match_mapping_type": "string",
+                "mapping": {"type": "keyword", "ignore_above": 1024}
+            }
+        },
+        {
+            "raw_data_strings": {
+                "path_match": "raw_data.Metadata.*",
+                "match_mapping_type": "string",
                 "mapping": {"type": "keyword", "ignore_above": 1024}
             }
         },
