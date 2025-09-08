@@ -3,6 +3,7 @@ This module provides extensions for graph elements, including conversion from py
 and upserting SystemProvenance into the graph.
 """
 
+from datetime import datetime
 from typing import Optional
 from py2neo import Graph, Node
 from uuid import UUID
@@ -101,6 +102,8 @@ class GraphElementBehavior:
     def upsert_systemprovenance(
         graph_client: Graph,
         unit_id: UUID,
+        trace_id: str,
+        timestamp: datetime,
         parent_id: Optional[str],
         related_span_id: str,
         system_provenance: SystemProvenance,

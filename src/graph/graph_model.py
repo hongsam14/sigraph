@@ -8,6 +8,7 @@ from typing import Optional
 from pydantic import BaseModel
 from graph.provenance.type import SystemProvenance
 import pydantic
+import datetime
 
 if pydantic.VERSION.startswith("2."):
     class GraphNode(BaseModel):
@@ -27,6 +28,8 @@ if pydantic.VERSION.startswith("2."):
         """
 
         unit_id: UUID
+        timestamp: datetime.datetime
+        trace_id: str
         span_id: str
         system_provenance: str
         parent_span_id: Optional[str] = None
@@ -55,6 +58,8 @@ else:
         """
 
         unit_id: UUID
+        timestamp: datetime.datetime
+        trace_id: str
         span_id: str
         system_provenance: SystemProvenance
         parent_span_id: Optional[str] = None

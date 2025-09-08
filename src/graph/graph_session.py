@@ -78,6 +78,8 @@ class GraphSession:
             GraphElementBehavior.upsert_systemprovenance(
                 graph_client=self.__client,
                 unit_id=node.unit_id,
+                trace_id=node.trace_id,
+                timestamp=node.timestamp,
                 related_span_id=node.span_id,
                 system_provenance=sp_value,
                 parent_id=node.parent_span_id,
