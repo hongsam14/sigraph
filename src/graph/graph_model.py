@@ -8,7 +8,7 @@ from typing import Optional
 from pydantic import BaseModel
 from graph.provenance.type import SystemProvenance
 import pydantic
-import datetime
+from datetime import datetime
 
 if pydantic.VERSION.startswith("2."):
     class GraphNode(BaseModel):
@@ -21,17 +21,18 @@ if pydantic.VERSION.startswith("2."):
             and serialization.
 
         Attributes:
-            unit_id (UUID): Unique identifier for the node.
             span_id (str): Unique identifier for the span.
             system_provenance (SystemProvenance): System provenance information associated with the node.
             parent_span_id (Optional[str]): Unique identifier for the parent span, if any.
         """
 
-        unit_id: UUID
-        timestamp: datetime.datetime
         trace_id: str
         span_id: str
+        unit_id: UUID
+        timestamp: datetime
+        weight: int
         system_provenance: str
+        process_name: Optional[str] = None
         parent_span_id: Optional[str] = None
         parent_system_provenance: Optional[str] = None
 
@@ -51,17 +52,18 @@ else:
             and serialization.
 
         Attributes:
-            unit_id (UUID): Unique identifier for the node.
             span_id (str): Unique identifier for the span.
             system_provenance (SystemProvenance): System provenance information associated with the node.
             parent_span_id (Optional[str]): Unique identifier for the parent span, if any.
         """
 
-        unit_id: UUID
-        timestamp: datetime.datetime
         trace_id: str
         span_id: str
+        unit_id: UUID
+        timestamp: datetime
+        weight: int
         system_provenance: SystemProvenance
+        process_name: Optional[str] = None
         parent_span_id: Optional[str] = None
         parent_system_provenance: Optional[SystemProvenance] = None
 

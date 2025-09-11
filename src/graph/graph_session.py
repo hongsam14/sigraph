@@ -7,6 +7,7 @@ and retrieve Sigraph nodes and relationships.
 
 from typing import Any, Optional
 from py2neo import Graph
+from uuid import UUID
 from graph.provenance.type import SystemProvenance
 from graph.graph_model import GraphNode
 from graph.graph_element.element_behavior import GraphElementBehavior
@@ -80,6 +81,8 @@ class GraphSession:
                 unit_id=node.unit_id,
                 trace_id=node.trace_id,
                 timestamp=node.timestamp,
+                weight=node.weight,
+                process_name=node.process_name,
                 related_span_id=node.span_id,
                 system_provenance=sp_value,
                 parent_id=node.parent_span_id,
@@ -88,5 +91,25 @@ class GraphSession:
         except Exception as e:
             self.__logger.error(
                 f"Failed to upsert system provenance for node {node.unit_id} {str(e)}"
+            )
+            raise e
+    
+    def clean_debris(self,
+                     unit_id: UUID,
+    )->dict:
+        """_summary_
+        Cleans up any orphaned or inconsistent data in the Neo4j database.
+        """
+        self.__logger.info("Cleaning up debris in the Neo4j database.")
+        try:
+            result: dict = GraphElementBehavior.clean_debris(
+                graph_client=self.__client,
+                unit_id=unit_id
+            )
+            self.__logger.info(f"Cleaned debris: {result}")
+            return result
+        except Exception as e:
+            self.__logger.error(
+                f"Failed to clean debris in the Neo4j database: {str(e)}"
             )
             raise e
