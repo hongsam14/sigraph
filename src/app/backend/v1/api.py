@@ -4,6 +4,7 @@ Also includes API endpoints for System Provenance Graph and Syslog database inte
 It includes endpoints for posting reports and queries to the AI agent.
 """
 from typing import Any
+from uuid import UUID
 from pydantic import BaseModel
 from fastapi import APIRouter, Body
 from fastapi.responses import PlainTextResponse
@@ -15,6 +16,8 @@ from graph.graph_session import GraphSession
 from ai.ai_agent import GraphAIAgent
 
 import traceback
+
+
 
 class DBAPI:
     """Database API for interacting with the System Provenance database."""
@@ -52,6 +55,22 @@ class DBAPI:
             description="Store a syslog object in the database."
         )
 
+        self.api_router.add_api_route(
+            "/syslog/sequence/{unit_id}/{trace_id}",
+            self.get_syslog_sequence,
+            methods=["GET"],
+            summary="Get syslog sequence",
+            description="Retrieve a sequence of syslog objects associated with a specific trace ID and unit ID."
+        )
+
+        self.api_router.add_api_route(
+            "/syslog/sequences/{unit_id}",
+            self.get_syslog_sequences,
+            methods=["POST"],
+            summary="Get syslog sequences",
+            description="Retrieve sequences of syslog objects based on a Lucene query."
+        )
+
     async def post_syscall(self, event: GraphNode):
         """Post a system call event to the graph database."""
         try:
@@ -60,11 +79,36 @@ class DBAPI:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    async def post_syslog(self, syslog_object: SyslogModel):
+    async def post_syslog(self, syslog_object: list[SyslogModel]):
         """Post a syslog object to the database."""
         try:
-            await self.db_session.store_syslog_object(syslog_object)
+            for obj in syslog_object:
+                await self.db_session.store_syslog_object(obj)
             return {"status": "ok"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+        
+    async def get_syslog_sequence(self, unit_id: str, trace_id: str):
+        """Get a sequence of syslog objects from the database."""
+        try:
+            uuid_obj = UUID(unit_id)
+            syslog_sequence = await self.db_session.get_syslog_sequence_with_trace(
+                unit_id=uuid_obj,
+                trace_id=trace_id,
+            )
+            return {"status": "ok", "data": syslog_sequence}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def get_syslog_sequences(self, unit_id: str, lucene_query: dict):
+        """Get sequences of syslog objects from the database based on a Lucene query."""
+        try:
+            uuid_obj = UUID(unit_id)
+            syslog_sequences = await self.db_session.get_syslog_sequences_with_lucene_query(
+                unit_id=uuid_obj,
+                lucene_query=lucene_query
+            )
+            return {"status": "ok", "data": syslog_sequences}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
@@ -80,6 +124,7 @@ class ReportRequest(BaseModel):
 class QueryRequest(BaseModel):
     """Request schema for querying the AI agent."""
     question: str
+
 
 class AIAPI:
     """AI API for interacting with the AI agent."""
