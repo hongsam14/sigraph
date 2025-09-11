@@ -121,3 +121,16 @@ class SyslogModel(BaseModel):
         """Configuration for SyslogModel."""
         orm_mode = True
         arbitrary_types_allowed = True
+
+
+
+
+class SyslogSequence(BaseModel):
+    """SyslogSequence is a Pydantic model for a sequence of syslog entries."""
+    label: str
+    syslogs: list[dict]
+
+    class Config:
+        """Configuration for SyslogSequence."""
+        orm_mode = True
+        arbitrary_types_allowed = True
