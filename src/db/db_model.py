@@ -122,9 +122,6 @@ class SyslogModel(BaseModel):
         orm_mode = True
         arbitrary_types_allowed = True
 
-
-
-
 class SyslogSequence(BaseModel):
     """SyslogSequence is a Pydantic model for a sequence of syslog entries."""
     label: str
@@ -134,3 +131,11 @@ class SyslogSequence(BaseModel):
         """Configuration for SyslogSequence."""
         orm_mode = True
         arbitrary_types_allowed = True
+
+    def extend(self, other: 'SyslogSequence'):
+        """Extend the syslogs list with another SyslogSequence's syslogs."""
+        self.syslogs.extend(other.syslogs)
+
+    def sort_by_timestamp(self):
+        """Sort the syslogs list by timestamp."""
+        self.syslogs.sort(key=lambda x: x.get('Timestamp', ''))

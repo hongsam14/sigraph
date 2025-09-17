@@ -113,3 +113,33 @@ class GraphSession:
                 f"Failed to clean debris in the Neo4j database: {str(e)}"
             )
             raise e
+
+    def get_related_trace_ids(self,
+                              unit_id: UUID,
+                              trace_id: str
+    ) -> list[str]:
+        """_summary_
+        Retrieves related trace IDs for a given unit ID and trace ID.
+
+        Args:
+            unit_id (UUID): The unit ID to query.
+            trace_id (str): The trace ID to query.
+        Returns:
+            list[str]: A list of related trace IDs.
+        Raises:
+            GraphDBInteractionException: If there is an error during the retrieval operation.
+        """
+        self.__logger.info(f"Retrieving related trace IDs for unit_id={unit_id} and trace_id={trace_id}")
+        try:
+            result: list[str] = GraphElementBehavior.get_related_trace_ids(
+                graph_client=self.__client,
+                unit_id=unit_id,
+                trace_id=trace_id
+            )
+            self.__logger.info(f"Found {len(result)} related trace IDs for unit_id={unit_id} and trace_id={trace_id}")
+            return result
+        except Exception as e:
+            self.__logger.error(
+                f"Failed to retrieve related trace IDs for unit_id={unit_id} and trace_id={trace_id}: {str(e)}"
+            )
+            raise e

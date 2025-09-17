@@ -162,15 +162,15 @@ class DBSession:
                 (str(unit_id), trace_id)
             ) from e
 
-    async def get_syslog_sequences_with_lucene_query(self, unit_id: UUID, lucene_query: dict) -> list[SyslogSequence]:
+    async def get_trace_ids_with_lucene_query(self, unit_id: UUID, lucene_query: dict) -> list[str]:
         """_summary_
-        Retrieve sequences of SyslogObjects based on a Lucene query.
+        Retrieve trace IDs based on a Lucene query.
 
         Args:
             lucene_query (dict): The Lucene query to filter by.
 
         Returns:
-            List[SyslogSequence]: A list of SyslogSequences matching the criteria.
+            List[str]: A list of trace IDs matching the criteria.
 
         Raises:
             DatabaseInteractionException: If there is an error during the retrieval operation.
@@ -219,10 +219,38 @@ class DBSession:
 
             self.__logger.info(f"Found {len(trace_ids)} unique trace_ids for unit_id={unit_id} with the given Lucene query.")
 
+            return trace_ids
+
+        except Exception as e:
+            self.__logger.error(f"Failed to retrieve trace IDs: {e}")
+            raise DatabaseInteractionException(
+                f"Failed to retrieve trace IDs: {e}",
+                (str(lucene_query),)
+            ) from e
+
+    async def label_syslog_sequences_with_lucene_query(self, unit_id: UUID, input_label: str, lucene_query: dict) -> list[SyslogSequence]:
+        """_summary_
+        Retrieve sequences of SyslogObjects based on a Lucene query.
+
+        Args:
+            lucene_query (dict): The Lucene query to filter by.
+
+        Returns:
+            List[SyslogSequence]: A list of SyslogSequences matching the criteria.
+
+        Raises:
+            DatabaseInteractionException: If there is an error during the retrieval operation.
+        """
+        try:
+            ## first get all the trace_ids matching the lucene query
+            trace_ids: list[str] = await self.get_trace_ids_with_lucene_query(unit_id=unit_id,
+                                                                            lucene_query=lucene_query)
             ## then get the sequences for each trace_id
             result: list[SyslogSequence] = list[SyslogSequence]()
             for sequence in trace_ids:
-                syslog_sequence: SyslogSequence = await self.get_syslog_sequence_with_trace(unit_id=unit_id, trace_id=sequence)
+                syslog_sequence: SyslogSequence = await self.get_syslog_sequence_with_trace(unit_id=unit_id,
+                                                                                            trace_id=sequence,
+                                                                                            label=input_label)
                 if syslog_sequence:
                     result.append(syslog_sequence)
             return result

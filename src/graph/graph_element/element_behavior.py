@@ -364,3 +364,56 @@ class GraphElementBehavior:
                 ("unit_id", str(unit_id))
             ) from e
 
+    @staticmethod
+    def get_related_trace_ids(
+        graph_client: Graph,
+        unit_id: UUID,
+        trace_id: str,
+        max_hop: int = 5
+    ) -> list[str]:
+        """_summary_
+        Get all trace IDs connected to the given trace ID within the same unit.
+        
+        Args:
+            graph_client (Graph): The graph client to interact with the graph database.
+            unit_id (UUID): The unique identifier for the unit.
+            trace_id (str): The unique identifier for the trace.
+            max_hop (int): The maximum number of hops to traverse in the graph.
+        """
+
+        if not graph_client:
+            raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
+        if not unit_id:
+            raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
+        if not trace_id:
+            raise InvalidInputException("Trace ID cannot be empty", ("trace_id", type(trace_id).__name__))
+        if max_hop < 2:
+            raise InvalidInputException("Max hop must be greater than 1", ("max_hop", type(max_hop).__name__))
+        
+        try:
+            query = f"""\
+    MATCH (t1:Trace {{trace_id: $traceId, unit_id: $unitId}})
+    MATCH p = (t1)-[*1..{max_hop}]-(t2:Trace {{unit_id: $unitId}})
+    WITH t1, t2, p
+    WHERE elementId(t1) < elementId(t2)
+    RETURN t1, t2
+    ORDER BY length(p) ASC
+    """
+            # run the query
+            result = graph_client.run(
+                query,
+                traceId=trace_id,
+                unitId=str(unit_id),
+            )
+
+            # get trace ids from the result
+            trace_ids: list[str] = []
+            for record in result:
+                t2 = record["t2"]
+                trace_ids.append(t2["trace_id"])
+            return list(set(trace_ids))  # return unique trace ids
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to get connected trace IDs: {e}",
+                ("unit_id", str(unit_id), "trace_id", str(trace_id))
+            ) from e
