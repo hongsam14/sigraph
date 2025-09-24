@@ -261,8 +261,6 @@ class SigraphTrace:
         ## Store the created node in the instance variable
         self.__neo_node = current
 
-        print(f"Created py2neo trace document node: {current}")
-
         return current
 
 

@@ -246,7 +246,7 @@ class DBSession:
             trace_ids: list[str] = await self.get_trace_ids_with_lucene_query(unit_id=unit_id,
                                                                             lucene_query=lucene_query)
             ## then get the sequences for each trace_id
-            result: list[SyslogSequence] = list[SyslogSequence]()
+            result: list[SyslogSequence] = []
             for sequence in trace_ids:
                 syslog_sequence: SyslogSequence = await self.get_syslog_sequence_with_trace(unit_id=unit_id,
                                                                                             trace_id=sequence,

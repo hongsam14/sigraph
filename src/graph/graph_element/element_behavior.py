@@ -211,7 +211,7 @@ class GraphElementBehavior:
             raise InvalidInputException("Trace ID cannot be empty", ("trace_id", type(trace_id).__name__))
         if not timestamp:
             raise InvalidInputException("Timestamp cannot be empty", ("timestamp", type(timestamp).__name__))
-        if not weight or weight < 1:
+        if weight is None or weight < 1:
             raise InvalidInputException("Weight must be a positive integer", ("weight", type(weight).__name__))
         
 
@@ -349,7 +349,7 @@ class GraphElementBehavior:
             tx = graph_client.begin()
             cursor = tx.run(
                 query,
-                unit_id=str(unit_id) if unit_id else None
+                unit_id=str(unit_id)
             )
             tx.commit()
             # return the result
