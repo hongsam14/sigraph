@@ -39,6 +39,23 @@ services:
       - "5601:5601"
     depends_on:
       - opensearch
+  
+  fastapi:
+    image: fastapi-app
+    container_name: fastapi-app
+    ports:
+      - "8765:8765"
+    depends_on:
+      - neo4j
+      - opensearch
+    environment:
+      NEO4J_URI: neo4j
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: "ChangeMe12#$"
+      OPENSEARCH_URI: opensearch
+      OPENSEARCH_INDEX: syslog_index
+      BACKEND_URI: 0.0.0.0
+      BACKEND_PORT: 8765
 
 volumes:
   opensearch-volume:
