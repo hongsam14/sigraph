@@ -12,7 +12,7 @@ class AppConfig:
     def __init__(self):
         self.neo4j_uri = os.getenv("NEO4J_URI", "localhost")
         self.neo4j_user = os.getenv("NEO4J_USER", "neo4j")
-        self.neo4j_password: SecretStr = SecretStr(os.getenv("NEO4J_PASSWORD", ""))
+        self.neo4j_password: SecretStr = SecretStr(os.getenv("NEO4J_PASSWORD", "ChangeMe12#$"))
         
         self.opensearch_uri = os.getenv("OPENSEARCH_URI", "localhost")
         self.opensearch_index = os.getenv("OPENSEARCH_INDEX", "syslog_index")
