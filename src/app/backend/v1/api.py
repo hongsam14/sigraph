@@ -82,6 +82,14 @@ class DBAPI:
             description="Remove unnecessary nodes and relationships from the graph database."
         )
 
+        self.api_router.add_api_route(
+            "/traces/{unit_id}",
+            self.get_traces_by_unit,
+            methods=["GET"],
+            summary="Get all trace IDs for a unit",
+            description="Retrieve all trace IDs associated with a specific unit ID from the graph database."
+        )
+
     async def post_syscall(self, event: GraphNode):
         """Post a system call event to the graph database."""
         try:
@@ -162,6 +170,15 @@ class DBAPI:
             uuid_obj = UUID(unit_id)
             result = self.graph_session.clean_debris(unit_id=uuid_obj)
             return {"status": "ok", "data": result}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+        
+    async def get_traces_by_unit(self, unit_id: str) -> dict:
+        """Get all trace IDs for a given unit ID."""
+        try:
+            uuid_obj = UUID(unit_id)
+            trace_ids = self.graph_session.get_trace_ids_by_unit(uuid_obj)
+            return {"status": "ok", "unit_id": unit_id, "trace_ids": trace_ids}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
