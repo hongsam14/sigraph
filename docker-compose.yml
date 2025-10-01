@@ -49,7 +49,9 @@ services:
       - opensearch
 
   fastapi:
-    image: fastapi-app
+    build:
+      context: .
+      dockerfile: src/Dockerfile
     container_name: fastapi-app
     env_file:
       - ./.env
