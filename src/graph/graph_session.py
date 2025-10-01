@@ -143,3 +143,27 @@ class GraphSession:
                 f"Failed to retrieve related trace IDs for unit_id={unit_id} and trace_id={trace_id}: {str(e)}"
             )
             raise e
+
+    def get_trace_ids_by_unit(self, 
+                              unit_id: UUID
+    ) -> list[str]:
+        """_summary_
+        Retrieves all trace IDs for a given unit ID.
+
+        Args:
+            unit_id (UUID): The unit ID to query.
+
+        Returns:
+            list[str]: A list of trace IDs that belong to the given unit.
+
+        Raises:
+            GraphDBInteractionException: If there is an error during the retrieval operation.
+        """
+        try:
+            return GraphElementBehavior.get_all_trace_ids_by_unit(
+                graph_client=self.__client,
+                unit_id=unit_id,
+            )
+        except Exception as e:
+            self.__logger.error(f"Failed to get traces by unit_id={unit_id}: {e}")
+            raise e    

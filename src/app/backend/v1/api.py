@@ -82,13 +82,21 @@ class DBAPI:
             description="Remove unnecessary nodes and relationships from the graph database."
         )
 
+        self.api_router.add_api_route(
+            "/traces/{unit_id}",
+            self.get_traces_by_unit,
+            methods=["GET"],
+            summary="Get all trace IDs for a unit",
+            description="Retrieve all trace IDs associated with a specific unit ID from the graph database."
+        )
+
     async def post_syscall(self, event: GraphNode):
         """Post a system call event to the graph database."""
         try:
             await self.graph_session.upsert_system_provenance(event)
             return {"status": "ok"}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            raise e
 
     async def post_syslog(self, syslog_object: list[SyslogModel]):
         """Post a syslog object to the database."""
@@ -97,7 +105,7 @@ class DBAPI:
                 await self.db_session.store_syslog_object(obj)
             return {"status": "ok"}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            raise e
         
     async def get_syslog_sequence(self, unit_id: str, trace_id: str):
         """Get a sequence of syslog objects from the database."""
@@ -127,7 +135,7 @@ class DBAPI:
             syslog_sequence.sort_by_timestamp()
             return {"status": "ok", "data": syslog_sequence}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            raise e
 
     async def label_syslog_sequences(self, unit_id: str, input_label: str, lucene_query: dict):
         """Get sequences of syslog objects from the database based on a Lucene query."""
@@ -154,7 +162,7 @@ class DBAPI:
             )
 
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            raise e
 
     async def clean_debris(self, unit_id: str) -> dict:
         """clean debris in the graph database for a given unit ID."""
@@ -163,7 +171,16 @@ class DBAPI:
             result = self.graph_session.clean_debris(unit_id=uuid_obj)
             return {"status": "ok", "data": result}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            raise e
+        
+    async def get_traces_by_unit(self, unit_id: str) -> dict:
+        """Get all trace IDs for a given unit ID."""
+        try:
+            uuid_obj = UUID(unit_id)
+            trace_ids = self.graph_session.get_trace_ids_by_unit(uuid_obj)
+            return {"status": "ok", "unit_id": unit_id, "trace_ids": trace_ids}
+        except Exception as e:
+            raise e
 
 
 class ReportRequest(BaseModel):

@@ -2,28 +2,36 @@ services:
   neo4j:
     build: ./neo4j
     volumes:
-        - ./volume/logs:/logs
-        - ./volume/config:/config
-        - ./volume/data:/data
-        - ./volume/plugins:/plugins
+      - ./volume/logs:/logs
+      - ./volume/config:/config
+      - ./volume/data:/data
+      - ./volume/plugins:/plugins
     environment:
-        NEO4J_AUTH: neo4j/ChangeMe12#$
-        NEO4J_apoc_export_file_enabled: "true"
-        NEO4J_apoc_import_file_enabled: "true"
-        NEO4J_apoc_import_file_use__neo4j__config: "true"
-        NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
+      NEO4J_apoc_import_file_use__neo4j__config: "true"
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
     ports:
       - "7474:7474"
       - "7687:7687"
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u ${NEO4J_USER} -p '${NEO4J_PASSWORD}' 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   opensearch:
     image: opensearchproject/opensearch:2.13.0
     container_name: opensearch
+    env_file:
+      - ./.env
     environment:
       - discovery.type=single-node
       - plugins.security.disabled=true
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=ChangeMe12#$
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${NEO4J_PASSWORD}
     volumes:
       - opensearch-volume:/usr/share/opensearch/data
     ports:
@@ -40,6 +48,27 @@ services:
     depends_on:
       - opensearch
 
+  fastapi:
+    image: fastapi-app
+    container_name: fastapi-app
+    env_file:
+      - ./.env
+    ports:
+      - "${BACKEND_PORT}:8765"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      opensearch:
+        condition: service_started
+    environment:
+      NEO4J_URI: neo4j
+      OPENSEARCH_URI: opensearch
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      OPENSEARCH_INDEX: ${OPENSEARCH_INDEX}
+      BACKEND_URI: 0.0.0.0
+      BACKEND_PORT: 8765
+
 volumes:
   opensearch-volume:
     driver: local
@@ -47,3 +76,4 @@ volumes:
       o: bind
       type: none
       device: ./volume/opensearch
+

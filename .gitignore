@@ -117,3 +117,6 @@ venv.bak/
 
 # sample reports
 sample_reports/*
+
+# DS_Store
+../.DS_Store

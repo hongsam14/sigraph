@@ -417,3 +417,42 @@ class GraphElementBehavior:
                 f"Failed to get connected trace IDs: {e}",
                 ("unit_id", str(unit_id), "trace_id", str(trace_id))
             ) from e
+
+    @staticmethod
+    def get_all_trace_ids_by_unit(
+        graph_client: Graph,
+        unit_id: UUID
+    ) -> list[str]:
+        """_summary_
+        Get all trace IDs for a given unit_id.
+        
+        Args:
+            graph_client (Graph): The graph client to interact with the graph database.
+            unit_id (UUID): The unique identifier for the unit.
+
+        Returns:
+            list[str]: A list of trace IDs belonging to the given unit.
+
+        Raises:
+            InvalidInputException: If the graph client or unit_id is invalid.
+            GraphDBInteractionException: If there is an error interacting with the graph database.
+        """
+        if not graph_client:
+            raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
+        if not unit_id:
+            raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
+
+        try:
+            query = """
+            MATCH (t:Trace)
+            WHERE t.unit_id = $unit_id
+            RETURN t.trace_id AS trace_id
+            ORDER BY t.trace_id ASC
+            """
+            result = graph_client.run(query, unit_id=str(unit_id)).data()
+            return [record["trace_id"] for record in result]
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to get trace IDs for unit: {e}",
+                ("unit_id", str(unit_id))
+            ) from e
