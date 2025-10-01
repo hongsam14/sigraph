@@ -447,6 +447,7 @@ class GraphElementBehavior:
             MATCH (t:Trace)
             WHERE t.unit_id = $unit_id
             RETURN t.trace_id AS trace_id
+            ORDER BY t.trace_id ASC
             """
             result = graph_client.run(query, unit_id=str(unit_id)).data()
             return [record["trace_id"] for record in result]
