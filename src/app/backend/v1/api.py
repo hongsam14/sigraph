@@ -90,7 +90,7 @@ class DBAPI:
             description="Retrieve all trace IDs associated with a specific unit ID from the graph database."
         )
 
-    async def post_syscall(self, event: GraphNode):
+    def post_syscall(self, event: GraphNode):
         """Post a system call event to the graph database."""
         try:
             self.graph_session.upsert_system_provenance(event)
