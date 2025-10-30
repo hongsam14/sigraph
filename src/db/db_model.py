@@ -4,6 +4,7 @@ Define the database model for syslog entries in OpenSearch.
 
 from datetime import datetime
 from uuid import UUID
+from typing import Optional
 from pydantic import BaseModel
 from opensearchpy import OpenSearch
 
@@ -65,6 +66,8 @@ def install_syslog_template_and_index(client: OpenSearch):
         "span_id":  {"type": "keyword"},
         "trace_id": {"type": "keyword"},
         "timestamp": {"type": "date"},
+        "tactics": {"type": "keyword"},
+        "rule_ids": {"type": "keyword"},
         "raw_data": {
             "type": "object",
             "dynamic": True,
@@ -105,16 +108,14 @@ def install_syslog_template_and_index(client: OpenSearch):
             }
         )
 
-
-
-
-
 class SyslogModel(BaseModel):
     """SyslogModel is a Pydantic model for syslog entries interface."""
     unit_id: UUID
     span_id: str
     trace_id: str
     timestamp: datetime
+    tactics: Optional[str] = None
+    rule_ids: Optional[str] = None
     raw_data: dict
 
     class Config:
