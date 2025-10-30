@@ -224,13 +224,20 @@ class SigraphRelationship:
 class SigraphTrace:
     __trace_id: str
     __unit_id: UUID
+    __start_time: Optional[datetime]
+    __representative_process_name: Optional[str]
     __neo_node: Node
 
     def __init__(self,
                  trace_id: str,
-                 unit_id: UUID):
+                 unit_id: UUID,
+                 start_time: Optional[datetime] = None,
+                 representative_process_name: Optional[str] = None,
+                 ):
         self.__trace_id = trace_id
         self.__unit_id = unit_id
+        self.__start_time = start_time
+        self.__representative_process_name = representative_process_name
         self.__neo_node = None
 
     @property
@@ -240,6 +247,14 @@ class SigraphTrace:
     @property
     def unit_id(self) -> UUID:
         return self.__unit_id
+    
+    @property
+    def start_time(self) -> Optional[datetime]:
+        return self.__start_time
+    
+    @property
+    def representative_process_name(self) -> Optional[str]:
+        return self.__representative_process_name
     
     def py2neo_node(self) -> Node:
         """_summary_
@@ -257,6 +272,11 @@ class SigraphTrace:
                              trace_id=self.trace_id,
                              unit_id=str(self.unit_id)
                              )
+        ## append additional properties to the node
+        if self.__start_time:
+            current["start_time"] = self.__start_time
+        if self.__representative_process_name:
+            current["representative_process_name"] = self.__representative_process_name
         
         ## Store the created node in the instance variable
         self.__neo_node = current
@@ -294,6 +314,77 @@ class SigraphTraceRelationship:
             return self.__neo_relationship
         rel: Relationship = Relationship(
             self.__trace_node.py2neo_node(),
+            self.__relation_name,
+            self.__syscall_node.py2neo_node(),
+        )
+        self.__neo_relationship = rel
+        return rel
+    
+
+class SigraphSigmaRule:
+    __rule_id: str
+    __neo_node: Node
+
+    def __init__(self,
+                 rule_id: str):
+        self.__rule_id = rule_id
+        self.__neo_node = None
+
+    @property
+    def rule_id(self) -> str:
+        return self.__rule_id
+
+    def py2neo_node(self) -> Node:
+        """_summary
+        Convert the SigraphSigmaRule instance to a py2neo Node object.
+        This method creates a Node object with essential properties and returns it.
+        Returns:
+            Node: The created py2neo Node object.
+        """
+        ## Check if the node has already been created
+        if self.__neo_node is not None:
+            return self.__neo_node
+
+        ## Create a py2neo Node object from the SigraphSigmaRule instance with essential properties.
+        current: Node = Node("SigmaRule",
+                             rule_id=self.rule_id,
+                             )
+        
+        ## Store the created node in the instance variable
+        self.__neo_node = current
+
+        return current
+
+class SigraphSigmaRuleRelationship:
+    __rule_node: SigraphSigmaRule
+    __syscall_node: SigraphNode
+    __relation_name: str = "MATCHES"
+    __neo_relationship: Relationship
+
+    def __init__(self,
+                rule_node: SigraphSigmaRule,
+                node: SigraphNode):
+        self.__rule_node = rule_node
+        self.__syscall_node = node
+        self.__neo_relationship = None
+
+    @property
+    def rule_node(self) -> SigraphSigmaRule:
+        return self.__rule_node
+    
+    @property
+    def syscall_node(self) -> SigraphNode:
+        return self.__syscall_node
+
+    @property
+    def relation_name(self) -> str:
+        return self.__relation_name
+    
+    def py2neo_relationship(self) -> Relationship:
+        if self.__neo_relationship is not None:
+            return self.__neo_relationship
+        rel: Relationship = Relationship(
+            self.__rule_node.py2neo_node(),
             self.__relation_name,
             self.__syscall_node.py2neo_node(),
         )
