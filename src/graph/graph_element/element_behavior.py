@@ -2,7 +2,6 @@
 This module provides extensions for graph elements, including conversion from py2neo nodes to SigraphNode
 and upserting SystemProvenance into the graph.
 """
-
 from datetime import datetime
 from typing import Optional
 from py2neo import Graph, Node
@@ -66,14 +65,19 @@ class GraphElementBehavior:
         """
         if not node:
             raise InvalidInputException("Node cannot be None", ("node", type(node).__name__))
-        if not "unit_id" in node or not "trace_id" in node:
-            raise InvalidElementException("Node must contain 'unit_id' and 'trace_id' properties", ("node", type(node).__name__))
-        return SigraphTrace(
+        if not "unit_id" in node or not "trace_id" in node or "start_time" not in node:
+            raise InvalidElementException("Node must contain 'unit_id', 'start_time' and 'trace_id' properties", ("node", type(node).__name__))
+        ## convert timestamp string to datetime object
+        out: SigraphTrace = SigraphTrace(
             trace_id=node["trace_id"],
             unit_id=UUID(node["unit_id"]),
-            start_time=node.get("start_time"),
-            representative_process_name=node.get("representative_process_name")
+            start_time=datetime.now(),
+            representative_process_name=node.get("representative_process_name"),
+            span_count=node.get("span_count")
         )
+        ## update start_time property
+        out.neo_time = node["start_time"]
+        return out
     
     @staticmethod
     def get_sigraph_node_from_graph(
@@ -345,6 +349,7 @@ class GraphElementBehavior:
                     start_time=timestamp,
                     weight=weight
                 )
+            
 
         except Exception as e:
             raise GraphDBInteractionException(
@@ -358,8 +363,8 @@ class GraphElementBehavior:
             ) from e
 
         ## merge the node and relationship into the graph
+        ## add current node ===========================================
         try:
-            ## add current node ===========================================
             ## merge the current node
             graph_client.merge(current_node.py2neo_node(), str(current_node.artifact.artifact_type.value), "artifact")
             
@@ -368,9 +373,16 @@ class GraphElementBehavior:
                 # If parent_id is provided, merge the parent node and create a relationship
                 graph_client.merge(parent_node.py2neo_node(), str(parent_node.artifact.artifact_type.value), "artifact")
                 graph_client.create(relationship.py2neo_relationship())
-            ## ============================================================
             
-            ## add trace & trace relationship ====================================
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to merge node and relationship into the graph: {e}",
+                ("unit_id", str(unit_id), "artifact", str(actor.artifact))
+            ) from e
+        ## ============================================================
+
+        ## add trace & trace relationship ====================================
+        try:
             ## search for existing trace node with the same trace_id
             trace = GraphElementBehavior.get_sigraph_trace_from_graph(
                 graph_client=graph_client, trace_id=trace_id, unit_id=unit_id
@@ -381,18 +393,23 @@ class GraphElementBehavior:
                     trace_id=trace_id,
                     unit_id=unit_id,
                     start_time=timestamp,
-                    representative_process_name=process_name
+                    representative_process_name=process_name,
+                    span_count=0 # initialize span_count to 0
                 )
+            
             
             ## update representative attributes to the trace node
             ## get start_time and process_name from trace node.
             ## if current nodes's start_time is earlier than trace's start_time, update it.
-            if trace.start_time is not None and timestamp < trace.start_time:
+            if trace.start_time is not None and timestamp.timestamp() < trace.start_time.timestamp():
                 # update start_time and representative_process_name
-                trace_node: Node = trace.py2neo_node()
-                trace_node["start_time"] = timestamp
-                trace_node["representative_process_name"] = process_name
+                trace.start_time = timestamp
+                trace.representative_process_name = process_name
 
+            ## update span_count
+            if trace.span_count is not None:
+                trace.span_count = trace.span_count + 1
+            
             graph_client.merge(trace.py2neo_node(), "Trace", "trace_id")
 
             ## create a relationship between the trace and the syscall node later
@@ -401,9 +418,15 @@ class GraphElementBehavior:
                 node=current_node,
             )
             graph_client.create(trace_relationship.py2neo_relationship())
-            ## ==================================================================
-
-            ## add sigma rule & sigma rule relationship ==========================
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to merge trace and relationship into the graph: {e}",
+                ("unit_id", str(unit_id), "artifact", str(actor.artifact))
+            ) from e
+        ## ==================================================================
+        
+        ## add sigma rule & sigma rule relationship ==========================
+        try:
             ## create an relationship with SigmaRule if rule_ids are provided
             if related_rule_ids and len(related_rule_ids) > 0:
                 for rule_id in related_rule_ids:
@@ -428,9 +451,10 @@ class GraphElementBehavior:
         
         except Exception as e:
             raise GraphDBInteractionException(
-                f"Failed to merge node and relationship into the graph: {e}",
+                f"Failed to merge rule and relationship into the graph: {e}",
                 ("unit_id", str(unit_id), "artifact", str(actor.artifact))
             ) from e
+        ## ==================================================================
 
     @staticmethod
     def clean_debris(
