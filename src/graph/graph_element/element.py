@@ -234,7 +234,7 @@ class SigraphTrace:
                  unit_id: UUID,
                  start_time: datetime,
                  representative_process_name: Optional[str] = None,
-                 span_count: Optional[int] = None,
+                 span_count: Optional[int] = None
                  ):
         self.__trace_id = trace_id
         self.__unit_id = unit_id
@@ -274,7 +274,7 @@ class SigraphTrace:
     @representative_process_name.setter
     def representative_process_name(self, value: Optional[str]):
         self.__representative_process_name = value
-    
+
     @property
     def span_count(self) -> Optional[int]:
         return self.__span_count
@@ -283,6 +283,7 @@ class SigraphTrace:
     def span_count(self, value: Optional[int]):
         self.__span_count = value
 
+    
     def py2neo_node(self) -> Node:
         """_summary_
         Convert the SigraphTrace instance to a py2neo Node object.
@@ -294,8 +295,8 @@ class SigraphTrace:
         if self.__neo_node is not None:
             ## check for node updates
             if (self.__neo_node.get("span_count") == self.__span_count) and \
-               (self.__neo_node.get("start_time") == self.__start_time) and \
-               (self.__neo_node.get("representative_process_name") == self.__representative_process_name):
+                (self.__neo_node.get("start_time") == self.__start_time) and \
+                (self.__neo_node.get("representative_process_name") == self.__representative_process_name):
                 return self.__neo_node
 
         ## Create a py2neo Node object from the SigraphTraceDocument instance with essential properties.
