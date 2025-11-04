@@ -57,7 +57,6 @@ if pydantic.VERSION.startswith("2."):
         trace_id: str
         timestamp: datetime
         image_name: Optional[str] = None
-        span_count: Optional[int] = 0
 
         model_config = {
             "title": "GraphTraceNode",
@@ -113,7 +112,6 @@ else:
         trace_id: str
         timestamp: datetime
         image_name: Optional[str] = None
-        span_count: Optional[int] = 0
 
         class Config:
             """_summary_

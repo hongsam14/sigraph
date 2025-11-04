@@ -37,6 +37,11 @@ class GraphSession:
         self.__logger.info(f"Connecting to Neo4j at {uri} with user {user}")
         try:
             self.__client = Graph(f"bolt://{uri}:7687", auth=(user, password))
+
+            # run constraints
+            GraphElementBehavior.apply_constraints(
+                graph_client=self.__client,
+            )
         except Exception as e:
             self.__logger.error(
                 f"Failed to connect to Neo4j database at {uri}.\
@@ -190,7 +195,6 @@ class GraphSession:
                     trace_id=t_id,
                     timestamp=timestamp,
                     image_name=image_name,
-                    span_count=span_count,
                 )
                 result.append(trace_node)
             return result
