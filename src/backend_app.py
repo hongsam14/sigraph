@@ -1,3 +1,4 @@
+import os
 import uvicorn
 from typing import Any
 from dotenv import load_dotenv
@@ -16,6 +17,10 @@ def main():
     print(f"Configuration loaded: \n{config.get_backend_config()}\
         \n{config.get_graph_session_config()}\
         \n{config.get_db_session_config()}")
+
+    ## check if log path exists, if not create it
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
 
     # Initialize FastAPI application
     app = FastAPI()

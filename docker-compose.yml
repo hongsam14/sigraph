@@ -62,6 +62,8 @@ services:
         condition: service_healthy
       opensearch:
         condition: service_started
+    volumes:
+      - fastapi-volume:/app/logs
     environment:
       NEO4J_URI: neo4j
       OPENSEARCH_URI: opensearch
@@ -78,4 +80,10 @@ volumes:
       o: bind
       type: none
       device: ./volume/opensearch
+  fastapi-volume:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./volume/app-logs
 
