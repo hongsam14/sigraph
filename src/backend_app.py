@@ -7,12 +7,12 @@ from app.config import AppConfig
 from loguru import logger
 from app.backend.api import BackendAPI
 
+g_config: AppConfig = AppConfig()
 
-def main():
+def create_app(config: AppConfig) -> FastAPI:
     # Load environment variables from .env file
     load_dotenv()
 
-    config: AppConfig = AppConfig()
 
     print(f"Configuration loaded: \n{config.get_backend_config()}\
         \n{config.get_graph_session_config()}\
@@ -26,6 +26,7 @@ def main():
     app = FastAPI()
 
     # Create Logger
+    # TODO: This can be raise race condition if multiple instances are created.
     logger.add("logs/app.log",
             rotation="10 MB",
             retention="7 days",
@@ -35,12 +36,21 @@ def main():
     # Initialize Backend API
     backend_api = BackendAPI(logger, config)
 
-
     # Include the router in the FastAPI app
     app.include_router(backend_api.api_router)
 
-    # run server
-    uvicorn.run(app, host=config.backend_uri, port=int(config.backend_port))
+    return app
 
+## for local testing
 if __name__ == "__main__":
-    main()
+    # run server
+    uvicorn.run(
+        create_app(g_config),
+        host=g_config.backend_uri,
+        port=int(g_config.backend_port)
+        )
+    
+## for production level deployment
+## for gunicorn server
+
+app = create_app(g_config)

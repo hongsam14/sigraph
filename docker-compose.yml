@@ -72,6 +72,8 @@ services:
       OPENSEARCH_INDEX: ${OPENSEARCH_INDEX}
       BACKEND_URI: 0.0.0.0
       BACKEND_PORT: 8765
+      # for gunicorn
+      WEB_CONCURRENCY: 8
 
 volumes:
   opensearch-volume:
