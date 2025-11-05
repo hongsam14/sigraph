@@ -306,6 +306,7 @@ class GraphElementBehavior:
             related_span_ids: list[str] = []
             related_trace_ids: list[str] = []
             
+            ## Current Node Sequence ====================================
             ## search for existing nodes with the same unit_id and artifact
             exist_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
                 graph_client=graph_client, artifact=actor.artifact
@@ -334,68 +335,9 @@ class GraphElementBehavior:
                 related_span_ids=related_span_ids,
                 related_trace_ids=related_trace_ids,
             )
-
-            ## create an parent process artifact
-            if parent_id is not None and parent_system_provenance is not None:
-                parent_artifact: Artifact = ArtifactExtension.from_parent_action(parent_system_provenance)
-
-                ## create parent artifact node or use existing one
-                exist_parent_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
-                    graph_client=graph_client, artifact=parent_artifact
-                )
-
-                if exist_parent_node:
-                    ## if the parent node already exists, use it
-                    parent_node: SigraphNode = exist_parent_node
-                else:
-                    ## if the parent node does not exist, create a new one
-                    parent_node = SigraphNode(
-                        artifact=parent_artifact,
-                    )
-
-                ## create a relationship between the parent node and the current node
-                relationship: SigraphRelationship = SigraphRelationship(
-                    process_node=parent_node,
-                    action_node=current_node,
-                    action_type=actor.action_type,
-                    actor_type=actor.actor_type,
-                    start_time=timestamp,
-                    weight=weight
-                )
+            ## ===========================================================
             
-
-        except Exception as e:
-            raise GraphDBInteractionException(
-                f"Failed to query system provenance: {e}",
-                (
-                    "unit_id", str(unit_id),
-                    "parent_id", str(parent_id) if parent_id is not None else "NONE",
-                    "related_span_id", str(related_span_id),
-                    "system_provenance", str(system_provenance)
-                )
-            ) from e
-
-        ## merge the node and relationship into the graph
-        ## add current node ===========================================
-        try:
-            ## merge the current node
-            graph_client.merge(current_node.py2neo_node(), str(current_node.artifact.artifact_type.value), "artifact")
-            
-            ## merge the parent node and relationship if parent_id is provided
-            if parent_id is not None:
-                # If parent_id is provided, merge the parent node and create a relationship
-                graph_client.merge(parent_node.py2neo_node(), str(parent_node.artifact.artifact_type.value), "artifact")
-                graph_client.create(relationship.py2neo_relationship())
-            
-        except Exception as e:
-            raise GraphDBInteractionException(
-                f"Failed to merge node and relationship into the graph: {e}",
-                ("unit_id", str(unit_id), "artifact", str(actor.artifact))
-            ) from e
-        ## ============================================================
-
-        ## add trace & trace relationship ====================================
-        try:
+            ## Trace Node Sequence ======================================
             ## search for existing trace node with the same trace_id
             trace = GraphElementBehavior.get_sigraph_trace_from_graph(
                 graph_client=graph_client, trace_id=trace_id, unit_id=unit_id
@@ -421,22 +363,103 @@ class GraphElementBehavior:
             ## update span_count
             if trace.span_count is not None:
                 trace.span_count = trace.span_count + 1
-
-            graph_client.merge(trace.py2neo_node(), "Trace", "trace_id")
-
+            
             ## create a relationship between the trace and the syscall node later
             trace_relationship: SigraphTraceRelationship = SigraphTraceRelationship(
                 trace_node=trace,
                 node=current_node,
             )
+            
+            ## ===========================================================
+
+            ## Parent Node Sequence =======================================
+            ## create an parent process artifact
+            
+            parent_node: Optional[SigraphNode] = None
+            relationship: Optional[SigraphRelationship] = None
+            parent_trace_relationship: Optional[SigraphTraceRelationship] = None
+
+            if parent_id is not None and parent_system_provenance is not None:
+                parent_artifact: Artifact = ArtifactExtension.from_parent_action(parent_system_provenance)
+
+                ## create parent artifact node or use existing one
+                exist_parent_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
+                    graph_client=graph_client, artifact=parent_artifact
+                )
+
+                if exist_parent_node:
+                    ## if the parent node already exists, use it
+                    parent_node: SigraphNode = exist_parent_node
+                else:
+                    ## if the parent node does not exist, create a new one
+                    parent_node = SigraphNode(
+                        artifact=parent_artifact,
+                    )
+                    
+                    ## create trace relationship between parent node and trace node
+                    parent_trace_relationship: SigraphTraceRelationship = SigraphTraceRelationship(
+                        trace_node=trace,
+                        node=parent_node,
+                    )
+
+                ## create a relationship between the parent node and the current node
+                relationship: SigraphRelationship = SigraphRelationship(
+                    process_node=parent_node,
+                    action_node=current_node,
+                    action_type=actor.action_type,
+                    actor_type=actor.actor_type,
+                    start_time=timestamp,
+                    weight=weight
+                )
+            ## ===========================================================
+
+            
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to query system provenance: {e}",
+                (
+                    "unit_id", str(unit_id),
+                    "parent_id", str(parent_id) if parent_id is not None else "NONE",
+                    "related_span_id", str(related_span_id),
+                    "system_provenance", str(system_provenance)
+                )
+            ) from e
+
+        ## merge the node and relationship into the graph
+        ## add trace & trace relationship ==========================================
+        try:
+            ## merge the trace node
+            graph_client.merge(trace.py2neo_node(), "Trace", "trace_id")
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to merge trace into the graph: {e}",
+                ("unit_id", str(unit_id), "artifact", str(actor.artifact))
+            ) from e
+        ## =========================================================================
+        ## add node and relationship between SigraphNodes ===========================
+        try:
+            ## merge the current node
+            graph_client.merge(current_node.py2neo_node(), str(current_node.artifact.artifact_type.value), "artifact")
+            
+            ## merge the parent node and relationship if parent_id is provided
+            if parent_node is not None:
+                # If parent_id is provided, merge the parent node and create a relationship
+                graph_client.merge(parent_node.py2neo_node(), str(parent_node.artifact.artifact_type.value), "artifact")
+            if relationship is not None:
+                # create the relationship between parent and current node
+                graph_client.create(relationship.py2neo_relationship())
+            if parent_trace_relationship is not None:
+                # create the trace relationship between parent node and trace node
+                graph_client.create(parent_trace_relationship.py2neo_relationship())
+
+            ## merge the trace relationship between the trace and the current node
             graph_client.create(trace_relationship.py2neo_relationship())
         except Exception as e:
             raise GraphDBInteractionException(
-                f"Failed to merge trace and relationship into the graph: {e}",
+                f"Failed to merge sigraph node and relationship into the graph: {e}",
                 ("unit_id", str(unit_id), "artifact", str(actor.artifact))
             ) from e
         ## ==================================================================
-        
         ## add sigma rule & sigma rule relationship ==========================
         try:
             ## create an relationship with SigmaRule if rule_ids are provided
