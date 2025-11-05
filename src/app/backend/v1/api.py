@@ -177,8 +177,8 @@ class DBAPI:
         """Get all trace IDs for a given unit ID."""
         try:
             uuid_obj = UUID(unit_id)
-            trace_ids = self.graph_session.get_trace_ids_by_unit(uuid_obj)
-            return {"status": "ok", "unit_id": unit_id, "trace_ids": trace_ids}
+            trace_objs = self.graph_session.get_trace_ids_by_unit(uuid_obj)
+            return {"status": "ok", "unit_id": unit_id, "traces": trace_objs}
         except Exception as e:
             raise e
 

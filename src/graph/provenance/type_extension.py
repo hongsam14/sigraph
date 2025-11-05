@@ -75,6 +75,37 @@ class TypeExtension:
         except ValueError as ve:
             raise provenance_exceptions.InvalidInputException(f"{data} is not a valid ActorType", ("ActorType", str(ve)))
 
+    @staticmethod
+    def get_all_artifact_types() -> list[str]:
+        """_summary_
+        Get all artifact types as a list of strings.
+
+        Returns:
+            list[str]: A list of all artifact types.
+        """
+        return ArtifactExtension.get_all_artifact_types()
+    
+    @staticmethod
+    def get_all_action_types() -> list[str]:
+        """_summary_
+        Get all action types as a list of strings.
+
+        Returns:
+            list[str]: A list of all action types.
+        """
+        return ArtifactExtension.get_all_action_types()
+    
+    @staticmethod
+    def get_all_actor_types() -> list[str]:
+        """_summary_
+        Get all actor types as a list of strings.
+
+        Returns:
+            list[str]: A list of all actor types.
+        """
+        return ActorExtension.get_all_actor_types()
+
+
 
 class ArtifactExtension:
     """_summary_
@@ -145,6 +176,26 @@ class ArtifactExtension:
         action: str = "@".join(tokens[0:2])
         return ArtifactExtension.from_systemprovenance(SystemProvenance(action))
 
+    @staticmethod
+    def get_all_artifact_types() -> list[str]:
+        """_summary_
+        Get all artifact types as a list of strings.
+
+        Returns:
+            list[str]: A list of all artifact types.
+        """
+        return [artifact_type.value for artifact_type in provenance_type.ArtifactType]
+    
+    @staticmethod
+    def get_all_action_types() -> list[str]:
+        """_summary_
+        Get all action types as a list of strings.
+
+        Returns:
+            list[str]: A list of all action types.
+        """
+        return [action_type.value for action_type in provenance_type.ActionType]
+
 
 class ActorExtension:
     """_summary_
@@ -193,3 +244,13 @@ class ActorExtension:
             action_type=action_type,
             actor_type=actor_type
         )
+    
+    @staticmethod
+    def get_all_actor_types() -> list[str]:
+        """_summary_
+        Get all actor types as a list of strings.
+
+        Returns:
+            list[str]: A list of all actor types.
+        """
+        return [actor_type.value for actor_type in provenance_type.ActorType]
