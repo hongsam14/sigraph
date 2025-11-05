@@ -1,8 +1,8 @@
 """_summary_
 This module defines the elements for the syscall graph data structure.
 """
-
 from datetime import datetime
+from neo4j.time import DateTime
 from py2neo import Node, Relationship
 from pydantic import BaseModel
 from typing import Optional, List
@@ -224,13 +224,23 @@ class SigraphRelationship:
 class SigraphTrace:
     __trace_id: str
     __unit_id: UUID
+    __start_time: datetime
+    __representative_process_name: Optional[str]
+    __span_count: Optional[int]
     __neo_node: Node
 
     def __init__(self,
                  trace_id: str,
-                 unit_id: UUID):
+                 unit_id: UUID,
+                 start_time: datetime,
+                 representative_process_name: Optional[str] = None,
+                 span_count: Optional[int] = None
+                 ):
         self.__trace_id = trace_id
         self.__unit_id = unit_id
+        self.__start_time = start_time
+        self.__representative_process_name = representative_process_name
+        self.__span_count = span_count
         self.__neo_node = None
 
     @property
@@ -241,6 +251,39 @@ class SigraphTrace:
     def unit_id(self) -> UUID:
         return self.__unit_id
     
+    @property
+    def start_time(self) -> datetime:
+        return self.__start_time
+    
+    @property
+    def neo_time(self) -> DateTime:
+        return DateTime.from_native(self.__start_time)
+
+    @start_time.setter
+    def start_time(self, value: datetime):
+        self.__start_time = value
+
+    @neo_time.setter
+    def neo_time(self, value: DateTime):
+        self.__start_time = datetime.fromtimestamp(value.to_native().timestamp())
+
+    @property
+    def representative_process_name(self) -> Optional[str]:
+        return self.__representative_process_name
+
+    @representative_process_name.setter
+    def representative_process_name(self, value: Optional[str]):
+        self.__representative_process_name = value
+
+    @property
+    def span_count(self) -> Optional[int]:
+        return self.__span_count
+
+    @span_count.setter
+    def span_count(self, value: Optional[int]):
+        self.__span_count = value
+
+    
     def py2neo_node(self) -> Node:
         """_summary_
         Convert the SigraphTrace instance to a py2neo Node object.
@@ -250,13 +293,24 @@ class SigraphTrace:
         """
         ## Check if the node has already been created
         if self.__neo_node is not None:
-            return self.__neo_node
+            ## check for node updates
+            if (self.__neo_node.get("span_count") == self.__span_count) and \
+                (self.__neo_node.get("start_time") == self.__start_time) and \
+                (self.__neo_node.get("representative_process_name") == self.__representative_process_name):
+                return self.__neo_node
 
         ## Create a py2neo Node object from the SigraphTraceDocument instance with essential properties.
         current: Node = Node("Trace",
                              trace_id=self.trace_id,
                              unit_id=str(self.unit_id)
                              )
+        ## append additional properties to the node
+        if self.__start_time:
+            current["start_time"] = self.__start_time
+        if self.__representative_process_name:
+            current["representative_process_name"] = self.__representative_process_name
+        if self.__span_count is not None:
+            current["span_count"] = self.__span_count
         
         ## Store the created node in the instance variable
         self.__neo_node = current
@@ -294,6 +348,77 @@ class SigraphTraceRelationship:
             return self.__neo_relationship
         rel: Relationship = Relationship(
             self.__trace_node.py2neo_node(),
+            self.__relation_name,
+            self.__syscall_node.py2neo_node(),
+        )
+        self.__neo_relationship = rel
+        return rel
+    
+
+class SigraphSigmaRule:
+    __rule_id: str
+    __neo_node: Node
+
+    def __init__(self,
+                 rule_id: str):
+        self.__rule_id = rule_id
+        self.__neo_node = None
+
+    @property
+    def rule_id(self) -> str:
+        return self.__rule_id
+
+    def py2neo_node(self) -> Node:
+        """_summary
+        Convert the SigraphSigmaRule instance to a py2neo Node object.
+        This method creates a Node object with essential properties and returns it.
+        Returns:
+            Node: The created py2neo Node object.
+        """
+        ## Check if the node has already been created
+        if self.__neo_node is not None:
+            return self.__neo_node
+
+        ## Create a py2neo Node object from the SigraphSigmaRule instance with essential properties.
+        current: Node = Node("SigmaRule",
+                             rule_id=self.rule_id,
+                             )
+        
+        ## Store the created node in the instance variable
+        self.__neo_node = current
+
+        return current
+
+class SigraphSigmaRuleRelationship:
+    __rule_node: SigraphSigmaRule
+    __syscall_node: SigraphNode
+    __relation_name: str = "MATCHES"
+    __neo_relationship: Relationship
+
+    def __init__(self,
+                rule_node: SigraphSigmaRule,
+                node: SigraphNode):
+        self.__rule_node = rule_node
+        self.__syscall_node = node
+        self.__neo_relationship = None
+
+    @property
+    def rule_node(self) -> SigraphSigmaRule:
+        return self.__rule_node
+    
+    @property
+    def syscall_node(self) -> SigraphNode:
+        return self.__syscall_node
+
+    @property
+    def relation_name(self) -> str:
+        return self.__relation_name
+    
+    def py2neo_relationship(self) -> Relationship:
+        if self.__neo_relationship is not None:
+            return self.__neo_relationship
+        rel: Relationship = Relationship(
+            self.__rule_node.py2neo_node(),
             self.__relation_name,
             self.__syscall_node.py2neo_node(),
         )

@@ -4,12 +4,12 @@ which manages the connection to the Neo4j graph database.
 It provides methods to upsert system provenance objects,
 and retrieve Sigraph nodes and relationships.
 """
-
+from datetime import datetime
 from typing import Any, Optional
 from py2neo import Graph
 from uuid import UUID
 from graph.provenance.type import SystemProvenance
-from graph.graph_model import GraphNode
+from graph.graph_model import GraphNode, GraphTraceNode
 from graph.graph_element.element_behavior import GraphElementBehavior
 
 
@@ -37,6 +37,11 @@ class GraphSession:
         self.__logger.info(f"Connecting to Neo4j at {uri} with user {user}")
         try:
             self.__client = Graph(f"bolt://{uri}:7687", auth=(user, password))
+
+            # run constraints
+            GraphElementBehavior.apply_constraints(
+                graph_client=self.__client,
+            )
         except Exception as e:
             self.__logger.error(
                 f"Failed to connect to Neo4j database at {uri}.\
@@ -57,8 +62,7 @@ class GraphSession:
 
     def upsert_system_provenance(
         self,
-        node: GraphNode,
-    ):
+        node: GraphNode):
         """_summary_
         Upserts a system provenance object in the Neo4j database.
 
@@ -78,15 +82,20 @@ class GraphSession:
             # Create or update the node in the database
             GraphElementBehavior.upsert_systemprovenance(
                 graph_client=self.__client,
+                ## node
                 unit_id=node.unit_id,
                 trace_id=node.trace_id,
+                system_provenance=sp_value,
+                ## relationship attributes
                 timestamp=node.timestamp,
                 weight=node.weight,
+                ## parent attributes
+                parent_id=node.parent_span_id,
+                parent_system_provenance=psp_value,
+                ## node attributes
                 process_name=node.process_name,
                 related_span_id=node.span_id,
-                system_provenance=sp_value,
-                parent_id=node.parent_span_id,
-                parent_system_provenance=psp_value
+                related_rule_ids=node.related_rule_ids,
             )
         except Exception as e:
             self.__logger.error(
@@ -95,8 +104,7 @@ class GraphSession:
             raise e
     
     def clean_debris(self,
-                     unit_id: UUID,
-    )->dict:
+                     unit_id: UUID) -> dict:
         """_summary_
         Cleans up any orphaned or inconsistent data in the Neo4j database.
         """
@@ -116,8 +124,7 @@ class GraphSession:
 
     def get_related_trace_ids(self,
                               unit_id: UUID,
-                              trace_id: str
-    ) -> list[str]:
+                              trace_id: str) -> list[str]:
         """_summary_
         Retrieves related trace IDs for a given unit ID and trace ID.
 
@@ -145,8 +152,7 @@ class GraphSession:
             raise e
 
     def get_trace_ids_by_unit(self, 
-                              unit_id: UUID
-    ) -> list[str]:
+                              unit_id: UUID) -> list[GraphTraceNode]:
         """_summary_
         Retrieves all trace IDs for a given unit ID.
 
@@ -154,16 +160,44 @@ class GraphSession:
             unit_id (UUID): The unit ID to query.
 
         Returns:
-            list[str]: A list of trace IDs that belong to the given unit.
+            list[GraphTraceNode]: A list of trace nodes that belong to the given unit.
 
         Raises:
             GraphDBInteractionException: If there is an error during the retrieval operation.
         """
         try:
-            return GraphElementBehavior.get_all_trace_ids_by_unit(
+            out: list[dict] = GraphElementBehavior.get_all_trace_ids_by_unit(
                 graph_client=self.__client,
                 unit_id=unit_id,
             )
+            result: list[GraphTraceNode] = []
+            for item in out:
+                tid = item.get("trace_id")
+                ## check for None because tid is necessary
+                if tid is None:
+                    continue
+                t_id = str(tid)
+                ## check for None because timestamp is necessary
+                timestamp_str = item.get("start_time")
+                if timestamp_str is None:
+                    continue
+                timestamp_str = str(timestamp_str)
+                ### convert timestamp string to datetime object
+                timestamp = datetime.fromisoformat(timestamp_str)
+                ## optional fields
+                image_name = item.get("representative_process_name")
+                span_count = item.get("span_count")
+                ## filter trace that have just one span
+                if span_count is None or span_count < 2:
+                    continue
+                ## construct GraphTraceNode
+                trace_node = GraphTraceNode(
+                    trace_id=t_id,
+                    timestamp=timestamp,
+                    image_name=image_name,
+                )
+                result.append(trace_node)
+            return result
         except Exception as e:
             self.__logger.error(f"Failed to get traces by unit_id={unit_id}: {e}")
             raise e    
