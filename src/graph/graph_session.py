@@ -5,12 +5,13 @@ It provides methods to upsert system provenance objects,
 and retrieve Sigraph nodes and relationships.
 """
 from datetime import datetime
+from pydantic import SecretStr
 from typing import Any, Optional
-from py2neo import Graph
 from uuid import UUID
-from graph.provenance.type import SystemProvenance
+from graph.provenance.type import SystemProvenance, ArtifactType
 from graph.graph_model import GraphNode, GraphTraceNode
 from graph.graph_element.element_behavior import GraphElementBehavior
+from graph.graph_client.client import GraphClient
 
 
 class GraphSession:
@@ -20,10 +21,10 @@ class GraphSession:
     and retrieve sigraph nodes and relationships.
     """
 
-    __client: Graph
+    __client: GraphClient
     __logger: Any
 
-    def __init__(self, logger: Any, uri: str, user: str, password: str):
+    def __init__(self, logger: Any, uri: str, user: str, password: SecretStr):
         """_summary_
         Initializes the GraphSession with a Neo4j connection.
 
@@ -35,9 +36,24 @@ class GraphSession:
         """
         self.__logger = logger
         self.__logger.info(f"Connecting to Neo4j at {uri} with user {user}")
-        try:
-            self.__client = Graph(f"bolt://{uri}:7687", auth=(user, password))
+        
+        # gen primary keys dict for GraphClient
+        ## from ArtifactType to "artifact"
+        ## from Trace to ("unit_id", "trace_id")
+        ## from Rule to "rule_id"
+        primary_keys: dict[str, str | tuple[str, ...]] | None = {}
+        for atype in ArtifactType:
+            primary_keys[atype] = "artifact"
+        primary_keys["Trace"] = ("unit_id", "trace_id")
+        primary_keys["Rule"] = "rule_id"
 
+        try:
+            self.__client = GraphClient(
+                uri=f"bolt://{uri}:7687",
+                user=user,
+                password=password,
+                logger=logger,
+                primary_keys=primary_keys)
             # run constraints
             GraphElementBehavior.apply_constraints(
                 graph_client=self.__client,
@@ -47,7 +63,6 @@ class GraphSession:
                 f"Failed to connect to Neo4j database at {uri}.\
                     Please check your connection settings."
             )
-
             raise ConnectionError(
                 f"Failed to connect to Neo4j database at {uri}. "
                 "Please check your connection settings."
@@ -58,9 +73,13 @@ class GraphSession:
         Destructor for the GraphSession class. Closes the Neo4j connection.
         """
         self.__logger.info("Closing Neo4j connection.")
-        # self.__client.close()
+        try:
+            self.__client.close()
+        except Exception as e:
+            self.__logger.error(f"Failed to close Neo4j connection: {str(e)}")
+            raise e
 
-    def upsert_system_provenance(
+    async def upsert_system_provenance(
         self,
         node: GraphNode):
         """_summary_
@@ -80,7 +99,7 @@ class GraphSession:
             if node.parent_system_provenance is not None:
                 psp_value = SystemProvenance(node.parent_system_provenance)
             # Create or update the node in the database
-            GraphElementBehavior.upsert_systemprovenance(
+            await GraphElementBehavior.upsert_systemprovenance(
                 graph_client=self.__client,
                 ## node
                 unit_id=node.unit_id,
@@ -101,16 +120,16 @@ class GraphSession:
             self.__logger.error(
                 f"Failed to upsert system provenance for node {node.unit_id} {str(e)}"
             )
-            raise e
+            # raise e
     
-    def clean_debris(self,
-                     unit_id: UUID) -> dict:
+    async def clean_debris(self,
+                     unit_id: UUID) -> Optional[dict]:
         """_summary_
         Cleans up any orphaned or inconsistent data in the Neo4j database.
         """
         self.__logger.info("Cleaning up debris in the Neo4j database.")
         try:
-            result: dict = GraphElementBehavior.clean_debris(
+            result: dict = await GraphElementBehavior.clean_debris(
                 graph_client=self.__client,
                 unit_id=unit_id
             )
@@ -120,11 +139,12 @@ class GraphSession:
             self.__logger.error(
                 f"Failed to clean debris in the Neo4j database: {str(e)}"
             )
-            raise e
+            # raise e
+            return None
 
-    def get_related_trace_ids(self,
+    async def get_related_trace_ids(self,
                               unit_id: UUID,
-                              trace_id: str) -> list[str]:
+                              trace_id: str) -> Optional[list[str]]:
         """_summary_
         Retrieves related trace IDs for a given unit ID and trace ID.
 
@@ -138,7 +158,7 @@ class GraphSession:
         """
         self.__logger.info(f"Retrieving related trace IDs for unit_id={unit_id} and trace_id={trace_id}")
         try:
-            result: list[str] = GraphElementBehavior.get_related_trace_ids(
+            result: list[str] = await GraphElementBehavior.get_related_trace_ids(
                 graph_client=self.__client,
                 unit_id=unit_id,
                 trace_id=trace_id
@@ -149,10 +169,12 @@ class GraphSession:
             self.__logger.error(
                 f"Failed to retrieve related trace IDs for unit_id={unit_id} and trace_id={trace_id}: {str(e)}"
             )
-            raise e
+            # raise e
+            return None
 
-    def get_trace_ids_by_unit(self, 
-                              unit_id: UUID) -> list[GraphTraceNode]:
+
+    async def get_trace_ids_by_unit(self, 
+                              unit_id: UUID) -> Optional[list[GraphTraceNode]]:
         """_summary_
         Retrieves all trace IDs for a given unit ID.
 
@@ -166,7 +188,7 @@ class GraphSession:
             GraphDBInteractionException: If there is an error during the retrieval operation.
         """
         try:
-            out: list[dict] = GraphElementBehavior.get_all_trace_ids_by_unit(
+            out: list[dict] = await GraphElementBehavior.get_all_trace_ids_by_unit(
                 graph_client=self.__client,
                 unit_id=unit_id,
             )
@@ -200,4 +222,5 @@ class GraphSession:
             return result
         except Exception as e:
             self.__logger.error(f"Failed to get traces by unit_id={unit_id}: {e}")
-            raise e    
+            # raise e 
+            return None

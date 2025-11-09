@@ -3,8 +3,8 @@ This module provides extensions for graph elements, including conversion from py
 and upserting SystemProvenance into the graph.
 """
 from datetime import datetime
-from typing import Optional
-from py2neo import Graph, Node
+from neo4j import Query
+from typing import Any, Optional, LiteralString, cast
 from uuid import UUID
 from graph.graph_element.schema import (
     CONSTRAINTS,
@@ -26,38 +26,24 @@ from graph.graph_element.element import (
                                         SigraphSigmaRule,
                                         SigraphSigmaRuleRelationship
                                         )
+from graph.graph_client.node import Node, Relationship, NodeExtension
+from graph.graph_client.client import GraphClient
+
 
 class GraphElementBehavior:
     """_summary_
     This class provides methods to handle SigraphNode instances,
     including conversion from py2neo nodes and upserting SystemProvenance into the graph.
     """
-
-    @staticmethod
-    def apply_constraints(graph_client: Graph):
-        """_summary_
-        Apply constraints to the Neo4j graph database.
-
-        Args:
-            graph_client (Graph): The graph client to interact with the graph database.
-        """
-        for constraint, query in CONSTRAINTS.items():
-            if constraint == "Artifact":
-                ## apply constraints for each ArtifactType
-                for artifact_type in ArtifactExtension.get_all_artifact_types():
-                    cypher_query = query.replace("{{$ArtifactType}}", str(artifact_type))
-                    graph_client.run(cypher_query)
-            elif constraint == "Trace":
-                graph_client.run(query)
     
     @staticmethod
-    def from_py2neo_node_to_sigraph(node: Node) -> "SigraphNode":
+    def from_graph_node_to_sigraph(node: Node) -> "SigraphNode":
         """_summary_
-        Convert a py2neo Node object to a SigraphNode instance.
+        Convert a graph Node object to a SigraphNode instance.
         
         Args:
-            node (Node): The py2neo Node object to convert.
-        
+            node (Node): The graph Node object to convert.
+
         Returns:
             SigraphNode: The converted SigraphNode instance.
 
@@ -75,12 +61,12 @@ class GraphElementBehavior:
         )
     
     @staticmethod
-    def from_py2neo_trace_node_to_sigraph(node: Node) -> SigraphTrace:
+    def from_graph_trace_node_to_sigraph(node: Node) -> SigraphTrace:
         """_summary_
-        Convert a py2neo Node object to a SigraphTrace instance.
-        
+        Convert a graph Node object to a SigraphTrace instance.
+
         Args:
-            node (Node): The py2neo Node object to convert.
+            node (Node): The graph Node object to convert.
         
         Returns:
             SigraphTrace: The converted SigraphTrace instance.
@@ -104,26 +90,40 @@ class GraphElementBehavior:
         ## update start_time property
         out.neo_time = node["start_time"]
         return out
+
+    @staticmethod
+    async def apply_constraints(graph_client:GraphClient):
+        """_summary_
+        Apply constraints to the Neo4j graph database.
+
+        Args:
+            graph_client (Graph): The graph client to interact with the graph database.
+        """
+        for constraint, query in CONSTRAINTS.items():
+            if constraint == "Artifact":
+                ## apply constraints for each ArtifactType
+                for artifact_type in ArtifactExtension.get_all_artifact_types():
+                    cypher_str = query.replace("{{$ArtifactType}}", str(artifact_type))
+                    cypher = cast(LiteralString, cypher_str)
+            elif constraint == "Trace":
+                cypher = cast(LiteralString, query)
+            # run the constraint query
+            await graph_client.run(cypher)
     
     @staticmethod
-    def get_sigraph_node_from_graph(
-        graph_client: Graph,
+    async def get_sigraph_node_from_graph(
+        graph_client: GraphClient,
         artifact: Artifact
     ) -> Optional[SigraphNode]:
         """_summary_
         Get a SigraphNode from the graph by unit_id and artifact.
-        
+
         Args:
-            graph_client (Graph): The graph client to interact with the graph database.
-            unit_id (UUID): The unique identifier for the node.
+            graph_client (GraphClient): The graph client to interact with the graph database.
             artifact (Artifact): The artifact associated with the node.
-        
+
         Returns:
             Optional[SigraphNode]: The retrieved SigraphNode instance or None if not found.
-
-        Raises:
-            InvalidInputException: If the graph client, unit_id, or artifact is invalid.
-            GraphDBInteractionException: If there is an error interacting with the graph database.
         """
         if not graph_client:
             raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
@@ -132,11 +132,11 @@ class GraphElementBehavior:
         
         try:
             ## search for existing nodes with the same unit_id and artifact
-            exist_nodes: list[Node] = graph_client.run(
+            exist_nodes: list[dict[str, Any]] = await graph_client.run(
                 cypher=QUERY_ARTIFACT(artifact.artifact_type),
                 artifact=str(artifact)
-                ).data()
-            if not exist_nodes:
+                )
+            if not exist_nodes or len(exist_nodes) == 0:
                 return None
             ## if there are multiple nodes, raise an exception. because artifact should be unique.
             if len(exist_nodes) > 1:
@@ -144,7 +144,9 @@ class GraphElementBehavior:
                     "Multiple nodes found with the same unit_id and artifact. Artifact should be unique.",
                     ("artifact", str(artifact))
                 )
-            return GraphElementBehavior.from_py2neo_node_to_sigraph(exist_nodes[0]["node"])
+            return GraphElementBehavior.from_graph_node_to_sigraph(
+                NodeExtension.dict_to_node(labels=[str(artifact.artifact_type)], data=exist_nodes[0]["node"])
+                )
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to search for existing nodes in the graph: {e}",
@@ -152,8 +154,8 @@ class GraphElementBehavior:
             ) from e
         
     @staticmethod
-    def get_sigraph_trace_from_graph(
-        graph_client: Graph,
+    async def get_sigraph_trace_from_graph(
+        graph_client: GraphClient,
         trace_id: str,
         unit_id: UUID
     ) -> Optional[SigraphTrace]:
@@ -178,12 +180,12 @@ class GraphElementBehavior:
             raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
         try:
             ## search for existing trace node with the same trace_id
-            exist_traces: list[Node] = graph_client.run(
+            exist_traces: list[dict[str, Any]] = await graph_client.run(
                 cypher=QUERY_TRACE_WITH_TRACE_ID(),
                 trace_id=trace_id,
                 unit_id=str(unit_id)
-                ).data()
-            if not exist_traces:
+                )
+            if not exist_traces or len(exist_traces) == 0:
                 return None
             ## if there are multiple traces, raise an exception. because trace_id should be unique.
             if len(exist_traces) > 1:
@@ -191,8 +193,9 @@ class GraphElementBehavior:
                     "Multiple traces found with the same trace_id. Trace ID should be unique.",
                     ("trace_id", str(trace_id), "unit_id", str(unit_id))
                 )
-            trace_node: Node = exist_traces[0]["node"]
-            return GraphElementBehavior.from_py2neo_trace_node_to_sigraph(trace_node)
+            return GraphElementBehavior.from_graph_trace_node_to_sigraph(
+                NodeExtension.dict_to_node(labels=['Trace'], data=exist_traces[0]["node"])
+                )
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to search for existing traces in the graph: {e}",
@@ -200,8 +203,8 @@ class GraphElementBehavior:
             ) from e
         
     @staticmethod
-    def get_sigraph_sigma_rule_from_graph(
-            graph_client: Graph,
+    async def get_sigraph_sigma_rule_from_graph(
+            graph_client: GraphClient,
             rule_id: str,
     ) -> Optional[SigraphSigmaRule]:
         """_summary_
@@ -224,11 +227,11 @@ class GraphElementBehavior:
             raise InvalidInputException("Rule ID cannot be empty", ("rule_id", type(rule_id).__name__))
         try:
             ## search for existing sigma rule node with the same rule_id
-            exist_rules: list[Node] = graph_client.run(
+            exist_rules: list[dict[str, Any]] = await graph_client.run(
                 cypher=QUERY_RULE(),
                 rule_id=rule_id
-                ).data()
-            if not exist_rules:
+                )
+            if not exist_rules or len(exist_rules) == 0:
                 return None
             ## if there are multiple rules, raise an exception. because rule_id should be unique.
             if len(exist_rules) > 1:
@@ -236,7 +239,7 @@ class GraphElementBehavior:
                     "Multiple sigma rules found with the same rule_id. Rule ID should be unique.",
                     ("rule_id", str(rule_id))
                 )
-            rule_node: Node = exist_rules[0]["node"]
+            rule_node: Node = NodeExtension.dict_to_node(labels=['SigmaRule'], data=exist_rules[0]["node"])
             return SigraphSigmaRule(
                 rule_id=rule_node["rule_id"],
             )
@@ -248,8 +251,8 @@ class GraphElementBehavior:
 
 
     @staticmethod
-    def upsert_systemprovenance(
-        graph_client: Graph,
+    async def upsert_systemprovenance(
+        graph_client: GraphClient,
         ## node
         unit_id: UUID,
         trace_id: str,
@@ -308,7 +311,7 @@ class GraphElementBehavior:
             
             ## Current Node Sequence ====================================
             ## search for existing nodes with the same unit_id and artifact
-            exist_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
+            exist_node: SigraphNode | None = await GraphElementBehavior.get_sigraph_node_from_graph(
                 graph_client=graph_client, artifact=actor.artifact
             )
             
@@ -339,7 +342,7 @@ class GraphElementBehavior:
             
             ## Trace Node Sequence ======================================
             ## search for existing trace node with the same trace_id
-            trace = GraphElementBehavior.get_sigraph_trace_from_graph(
+            trace = await GraphElementBehavior.get_sigraph_trace_from_graph(
                 graph_client=graph_client, trace_id=trace_id, unit_id=unit_id
             )
             if not trace:
@@ -383,7 +386,7 @@ class GraphElementBehavior:
                 parent_artifact: Artifact = ArtifactExtension.from_parent_action(parent_system_provenance)
 
                 ## create parent artifact node or use existing one
-                exist_parent_node: SigraphNode | None = GraphElementBehavior.get_sigraph_node_from_graph(
+                exist_parent_node: SigraphNode | None = await GraphElementBehavior.get_sigraph_node_from_graph(
                     graph_client=graph_client, artifact=parent_artifact
                 )
 
@@ -429,7 +432,7 @@ class GraphElementBehavior:
         ## add trace & trace relationship ==========================================
         try:
             ## merge the trace node
-            graph_client.merge(trace.py2neo_node(), "Trace", "trace_id")
+            await graph_client.merge_node(trace.to_node(), "Trace", "trace_id")
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to merge trace into the graph: {e}",
@@ -439,21 +442,35 @@ class GraphElementBehavior:
         ## add node and relationship between SigraphNodes ===========================
         try:
             ## merge the current node
-            graph_client.merge(current_node.py2neo_node(), str(current_node.artifact.artifact_type.value), "artifact")
+            await graph_client.merge_node(
+                sub_node=current_node.to_node(),
+                primary_label=str(current_node.artifact.artifact_type.value),
+                primary_key="artifact"
+                )
             
             ## merge the parent node and relationship if parent_id is provided
             if parent_node is not None:
                 # If parent_id is provided, merge the parent node and create a relationship
-                graph_client.merge(parent_node.py2neo_node(), str(parent_node.artifact.artifact_type.value), "artifact")
+                await graph_client.merge_node(
+                    sub_node=parent_node.to_node(),
+                    primary_label=str(parent_node.artifact.artifact_type.value),
+                    primary_key="artifact"
+                )
             if relationship is not None:
                 # create the relationship between parent and current node
-                graph_client.create(relationship.py2neo_relationship())
+                await graph_client.create_relation(
+                    relationship.to_relationship()
+                    )
             if parent_trace_relationship is not None:
                 # create the trace relationship between parent node and trace node
-                graph_client.create(parent_trace_relationship.py2neo_relationship())
+                await graph_client.create_relation(
+                    parent_trace_relationship.to_relationship()
+                )
 
             ## merge the trace relationship between the trace and the current node
-            graph_client.create(trace_relationship.py2neo_relationship())
+            await graph_client.create_relation(
+                trace_relationship.to_relationship()
+            )
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to merge sigraph node and relationship into the graph: {e}",
@@ -466,7 +483,7 @@ class GraphElementBehavior:
             if related_rule_ids and len(related_rule_ids) > 0:
                 for rule_id in related_rule_ids:
                     ## search for existing sigma rule node with the same rule_id
-                    sigma_rule: SigraphSigmaRule | None = GraphElementBehavior.get_sigraph_sigma_rule_from_graph(
+                    sigma_rule: SigraphSigmaRule | None = await GraphElementBehavior.get_sigraph_sigma_rule_from_graph(
                         graph_client=graph_client, rule_id=rule_id
                     )
                     ## create a new sigma rule node if not found
@@ -481,9 +498,15 @@ class GraphElementBehavior:
                         node=current_node,
                     )
                     # merge the sigma rule node and relationship into the graph
-                    graph_client.merge(sigma_rule.py2neo_node(), "SigmaRule", "rule_id")
-                    graph_client.create(sigma_rule_relationship.py2neo_relationship())
-        
+                    await graph_client.merge_node(
+                        sub_node=sigma_rule.to_node(),
+                        primary_label="SigmaRule",
+                        primary_key="rule_id"
+                    )
+                    await graph_client.create_relation(
+                        sigma_rule_relationship.to_relationship()
+                    )
+
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to merge rule and relationship into the graph: {e}",
@@ -492,8 +515,8 @@ class GraphElementBehavior:
         ## ==================================================================
 
     @staticmethod
-    def clean_debris(
-                     graph_client: Graph,
+    async def clean_debris(
+                     graph_client: GraphClient,
                      unit_id: UUID):
         """_summary_
         Cleans up any orphaned or inconsistent data in the Neo4j database.
@@ -506,14 +529,17 @@ class GraphElementBehavior:
         try:
             ## run task with transaction
             ## because this task is deleting nodes, we need to use a transaction
-            tx = graph_client.begin()
-            cursor = tx.run(
-                query,
+            cursor = await graph_client.run(
+                cypher=query,
                 unit_id=str(unit_id)
             )
-            tx.commit()
             # return the result
-            stats = cursor.stats() or {}
+            if not cursor or len(cursor) == 0:
+                return {
+                    "nodes_deleted": 0,
+                    "relationships_deleted": 0
+                }
+            stats = cursor[0] or {}
             return {
                 "nodes_deleted": stats.get("nodes_deleted", 0),
                 "relationships_deleted": stats.get("relationships_deleted", 0)
@@ -525,8 +551,8 @@ class GraphElementBehavior:
             ) from e
 
     @staticmethod
-    def get_related_trace_ids(
-        graph_client: Graph,
+    async def get_related_trace_ids(
+        graph_client: GraphClient,
         unit_id: UUID,
         trace_id: str,
         max_hop: int = 5
@@ -552,7 +578,7 @@ class GraphElementBehavior:
         
         try:
             # run the query
-            result = graph_client.run(
+            result = await graph_client.run(
                 QUERY_RELATED_TRACES(max_hop),
                 traceId=trace_id,
                 unitId=str(unit_id),
@@ -571,8 +597,8 @@ class GraphElementBehavior:
             ) from e
 
     @staticmethod
-    def get_all_trace_ids_by_unit(
-        graph_client: Graph,
+    async def get_all_trace_ids_by_unit(
+        graph_client: GraphClient,
         unit_id: UUID
     ) -> list[dict]:
         """_summary_
@@ -596,7 +622,7 @@ class GraphElementBehavior:
 
         try:
             query = QUERY_TRACES()
-            result = graph_client.run(query, unit_id=str(unit_id)).data()
+            result = await graph_client.run(query, unit_id=str(unit_id))
             return [record["node"] for record in result]
         except Exception as e:
             raise GraphDBInteractionException(
