@@ -1,5 +1,9 @@
 FROM python:3.13-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip
@@ -11,19 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir gunicorn
 
 # copy application files
+# copy gunicorn configuration file also
 COPY src/ /app/
 
-# copy gunicorn configuration file
-COPY gunicorn.config.py /app/
-
 # expose port 8765
-CMD [
-    "gunicorn",
-    "app.main:app",
-    "-k","uvicorn.workers.UvicornWorker",
-    "-w","8",
-    "-b","0.0.0.0:8765",
-    "--timeout","30",
-    "--keep-alive","5",
-    "--backlog","4096",
-]
+CMD [ "gunicorn","backend_app:app","-k","uvicorn.workers.UvicornWorker","-c","gunicorn.conf.py"]

@@ -25,20 +25,22 @@ def create_app(config: AppConfig) -> FastAPI:
     # Initialize FastAPI application
     app = FastAPI()
 
-    # Create Logger
-    # TODO: This can be raise race condition if multiple instances are created.
-    logger.add("logs/app.log",
-            rotation="10 MB",
-            retention="7 days",
-            compression="zip",
-            level="INFO")
-
     # Initialize Backend API
     backend_api = BackendAPI(logger, config)
 
     # Include the router in the FastAPI app
     app.include_router(backend_api.api_router)
+    
+    @app.get("/healthz")      # liveness
+    async def healthz():
+        return {"ok": True}
 
+    ready = True
+    
+    @app.get("/readyz")       # readiness
+    async def readyz():
+        return {"ready": ready}
+    
     return app
 
 ## for local testing
@@ -54,3 +56,4 @@ if __name__ == "__main__":
 ## for gunicorn server
 
 app = create_app(g_config)
+

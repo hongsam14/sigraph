@@ -34,7 +34,7 @@ class DBAPI:
             logger,
             uri=config.neo4j_uri,
             user=config.neo4j_user,
-            password=config.neo4j_password.get_secret_value()
+            password=config.neo4j_password
         )
         self.db_session = DBSession(
             logger,
@@ -66,13 +66,14 @@ class DBAPI:
             description="Retrieve a sequence of syslog objects associated with a specific trace ID and unit ID."
         )
 
-        self.api_router.add_api_route(
-            "/syslog/sequences/{unit_id}/label/{input_label}",
-            self.label_syslog_sequences,
-            methods=["POST"],
-            summary="Download syslog sequences with Lucene query and label",
-            description="Retrieve sequences of syslog objects based on a Lucene query."
-        )
+        # DEPRECATED
+        # self.api_router.add_api_route(
+        #     "/syslog/sequences/{unit_id}/label/{input_label}",
+        #     self.label_syslog_sequences,
+        #     methods=["POST"],
+        #     summary="Download syslog sequences with Lucene query and label",
+        #     description="Retrieve sequences of syslog objects based on a Lucene query."
+        # )
 
         self.api_router.add_api_route(
             "/clean_debris/{unit_id}",
@@ -90,10 +91,10 @@ class DBAPI:
             description="Retrieve all trace IDs associated with a specific unit ID from the graph database."
         )
 
-    def post_syscall(self, event: GraphNode):
+    async def post_syscall(self, event: GraphNode):
         """Post a system call event to the graph database."""
         try:
-            self.graph_session.upsert_system_provenance(event)
+            await self.graph_session.upsert_system_provenance(event)
             return {"status": "ok"}
         except Exception as e:
             raise e
@@ -101,8 +102,7 @@ class DBAPI:
     async def post_syslog(self, syslog_object: list[SyslogModel]):
         """Post a syslog object to the database."""
         try:
-            for obj in syslog_object:
-                await self.db_session.store_syslog_object(obj)
+            await self.db_session.store_syslog_object(syslog_object)
             return {"status": "ok"}
         except Exception as e:
             raise e
@@ -111,8 +111,9 @@ class DBAPI:
         """Get a sequence of syslog objects from the database."""
         try:
             uuid_obj = UUID(unit_id)
+            
             ## get related trace_ids from graph db
-            related_trace_ids = self.graph_session.get_related_trace_ids(
+            related_trace_ids = await self.graph_session.get_related_trace_ids(
                 unit_id=uuid_obj,
                 trace_id=trace_id
             )
@@ -121,15 +122,17 @@ class DBAPI:
                 unit_id=uuid_obj,
                 trace_id=trace_id,
             )
-            
-            # get sequences for related trace_ids
-            for related_trace_id in related_trace_ids:
-                if related_trace_id != trace_id:
-                    related_sequence = await self.db_session.get_syslog_sequence_with_trace(
-                        unit_id=uuid_obj,
-                        trace_id=related_trace_id,
-                    )
-                    syslog_sequence.extend(related_sequence)
+
+            ## if related_trace_ids is not None: append their sequences
+            if related_trace_ids is not None:
+                # get sequences for related trace_ids
+                for related_trace_id in related_trace_ids:
+                    if related_trace_id != trace_id:
+                        related_sequence = await self.db_session.get_syslog_sequence_with_trace(
+                            unit_id=uuid_obj,
+                            trace_id=related_trace_id,
+                        )
+                        syslog_sequence.extend(related_sequence)
 
             ## sort by timestamp
             syslog_sequence.sort_by_timestamp()
@@ -137,38 +140,39 @@ class DBAPI:
         except Exception as e:
             raise e
 
-    async def label_syslog_sequences(self, unit_id: str, input_label: str, lucene_query: dict):
-        """Get sequences of syslog objects from the database based on a Lucene query."""
-        try:
-            uuid_obj = UUID(unit_id)
-            syslog_sequences = await self.db_session.label_syslog_sequences_with_lucene_query(
-                unit_id=uuid_obj,
-                input_label=input_label,
-                lucene_query=lucene_query
-            )
-            ## open memory line buffer
-            buffer = io.StringIO()
-            # write each sequence as a json one line
-            for seq in syslog_sequences:
-                buffer.write(json.dumps(jsonable_encoder(seq)) + "\n")
-            buffer.seek(0)
-            # return as a streaming response
-            return StreamingResponse(
-                buffer,
-                media_type="application/json",
-                headers={
-                    "Content-Disposition": f'attachment; filename="syslog_sequences_{unit_id}.jsonl"'
-                }
-            )
+    # DEPRECATED
+    # async def label_syslog_sequences(self, unit_id: str, input_label: str, lucene_query: dict):
+    #     """Get sequences of syslog objects from the database based on a Lucene query."""
+    #     try:
+    #         uuid_obj = UUID(unit_id)
+    #         syslog_sequences = await self.db_session.label_syslog_sequences_with_lucene_query(
+    #             unit_id=uuid_obj,
+    #             input_label=input_label,
+    #             lucene_query=lucene_query
+    #         )
+    #         ## open memory line buffer
+    #         buffer = io.StringIO()
+    #         # write each sequence as a json one line
+    #         for seq in syslog_sequences:
+    #             buffer.write(json.dumps(jsonable_encoder(seq)) + "\n")
+    #         buffer.seek(0)
+    #         # return as a streaming response
+    #         return StreamingResponse(
+    #             buffer,
+    #             media_type="application/json",
+    #             headers={
+    #                 "Content-Disposition": f'attachment; filename="syslog_sequences_{unit_id}.jsonl"'
+    #             }
+    #         )
 
-        except Exception as e:
-            raise e
+    #     except Exception as e:
+    #         raise e
 
     async def clean_debris(self, unit_id: str) -> dict:
         """clean debris in the graph database for a given unit ID."""
         try:
             uuid_obj = UUID(unit_id)
-            result = self.graph_session.clean_debris(unit_id=uuid_obj)
+            result = await self.graph_session.clean_debris(unit_id=uuid_obj)
             return {"status": "ok", "data": result}
         except Exception as e:
             raise e
@@ -177,7 +181,7 @@ class DBAPI:
         """Get all trace IDs for a given unit ID."""
         try:
             uuid_obj = UUID(unit_id)
-            trace_objs = self.graph_session.get_trace_ids_by_unit(uuid_obj)
+            trace_objs = await self.graph_session.get_trace_ids_by_unit(uuid_obj)
             return {"status": "ok", "unit_id": unit_id, "traces": trace_objs}
         except Exception as e:
             raise e
