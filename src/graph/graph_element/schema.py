@@ -122,3 +122,29 @@ def FLUSH_SINGLE_ENTITIES_WITH_TRACE() -> LiteralString:
       AND COUNT{ (n)--() } = 1
     DETACH DELETE t, n
     """
+
+def QUERY_ALL_PROVENANCE() -> LiteralString:
+    """
+    Generates a Cypher query to retrieve all provenance data including artifacts, traces, and their relationships.
+    Provenance refers to how a process references an asset and makes modifications to the system.
+
+    Returns:
+        nodes and relationships representing the system provenance
+    """
+    return """\
+    MATCH (t:Trace {unit_id:$unit_id})-[:CONTAINS*1..]->(src)
+    MATCH p = (src)-[*1..5]->(dst)
+    WHERE NOT 'PROCESS' IN labels(dst)
+    AND EXISTS( (t)-[:CONTAINS*1..]->(dst) )
+    WITH nodes(p) AS ns, relationships(p) AS rs
+    RETURN {
+    nlst: [n IN ns | {elementId: elementId(n), labels: labels(n), properties: properties(n)}],
+    rlst:  [r IN rs | {
+        elementId: elementId(r),
+        startNodeElementId: elementId(startNode(r)),
+        endNodeElementId: elementId(endNode(r)),
+        type: type(r),
+        properties: properties(r)
+        }]
+    } AS provenance;
+    """

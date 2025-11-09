@@ -5,14 +5,16 @@ It provides methods to upsert system provenance objects,
 and retrieve Sigraph nodes and relationships.
 """
 from datetime import datetime
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import SecretStr
 from typing import Any, Optional
 from uuid import UUID
 from graph.provenance.type import SystemProvenance, ArtifactType
-from graph.graph_model import GraphNode, GraphTraceNode
-from graph.graph_element.element_behavior import GraphElementBehavior
 from graph.graph_client.client import GraphClient
-
+from graph.graph_element.element_behavior import GraphElementBehavior
+from graph.graph_element.helper import temporal_encoder
+from graph.graph_model import GraphNode, GraphTraceNode
 
 class GraphSession:
     """_summary_
@@ -223,4 +225,31 @@ class GraphSession:
         except Exception as e:
             self.__logger.error(f"Failed to get traces by unit_id={unit_id}: {e}")
             # raise e 
+            return None
+        
+    async def get_system_provenance(self, unit_id: UUID) -> JSONResponse | None:
+        """_summary_
+        Renders the system provenance graph for a given unit ID.
+
+        Args:
+            unit_id (UUID): The unit ID to render the provenance graph for.
+
+        Returns:
+            list[dict]: A list of serialized graph elements representing the system provenance.
+
+        Raises:
+            GraphDBInteractionException: If there is an error during the rendering operation.
+
+        """
+        try:
+            result: dict[str, list[dict[str, Any]]] = await GraphElementBehavior.get_all_provenance(
+                graph_client=self.__client,
+                unit_id=unit_id,
+            )
+            return JSONResponse(jsonable_encoder(result, custom_encoder=temporal_encoder))
+        except Exception as e:
+            self.__logger.error(
+                f"Failed to render system provenance for unit_id={unit_id}: {str(e)}"
+            )
+            # raise e
             return None

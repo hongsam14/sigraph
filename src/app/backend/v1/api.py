@@ -9,8 +9,7 @@ from typing import Any
 from uuid import UUID
 from pydantic import BaseModel
 from fastapi import APIRouter, Body
-from fastapi.responses import PlainTextResponse, StreamingResponse
-from fastapi.encoders import jsonable_encoder
+from fastapi.responses import PlainTextResponse, JSONResponse
 from app.config import AppConfig
 from db.db_session import DBSession
 from db.db_model import SyslogModel
@@ -89,6 +88,14 @@ class DBAPI:
             methods=["GET"],
             summary="Get all trace IDs for a unit",
             description="Retrieve all trace IDs associated with a specific unit ID from the graph database."
+        )
+
+        self.api_router.add_api_route(
+            "/graph/{unit_id}",
+            self.get_system_provenance_by_unit,
+            methods=["GET"],
+            summary="Get all system provenance nodes for a unit",
+            description="Retrieve all system provenance nodes associated with a specific unit ID from the graph database."
         )
 
     async def post_syscall(self, event: GraphNode):
@@ -183,6 +190,17 @@ class DBAPI:
             uuid_obj = UUID(unit_id)
             trace_objs = await self.graph_session.get_trace_ids_by_unit(uuid_obj)
             return {"status": "ok", "unit_id": unit_id, "traces": trace_objs}
+        except Exception as e:
+            raise e
+
+    async def get_system_provenance_by_unit(self, unit_id: str) -> JSONResponse:
+        """Get all system provenance nodes for a given unit ID."""
+        try:
+            uuid_obj = UUID(unit_id)
+            provenances = await self.graph_session.get_system_provenance(uuid_obj)
+            if provenances is None:
+                raise RuntimeError(f"Error raised when provenance found for unit_id={unit_id}")
+            return provenances
         except Exception as e:
             raise e
 

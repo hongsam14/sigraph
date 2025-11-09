@@ -3,8 +3,7 @@ This module provides extensions for graph elements, including conversion from py
 and upserting SystemProvenance into the graph.
 """
 from datetime import datetime
-from neo4j import Query
-from typing import Any, Optional, LiteralString, cast
+from typing import Any, Dict, Optional, LiteralString, cast
 from uuid import UUID
 from graph.graph_element.schema import (
     CONSTRAINTS,
@@ -13,6 +12,7 @@ from graph.graph_element.schema import (
     QUERY_RELATED_TRACES,
     QUERY_TRACE_WITH_TRACE_ID,
     QUERY_RULE,
+    QUERY_ALL_PROVENANCE,
     FLUSH_SINGLE_ENTITIES_WITH_TRACE
     )
 from graph.provenance.type import SystemProvenance, Actor, Artifact
@@ -26,8 +26,10 @@ from graph.graph_element.element import (
                                         SigraphSigmaRule,
                                         SigraphSigmaRuleRelationship
                                         )
+from graph.graph_element.helper import to_prefab
 from graph.graph_client.node import Node, Relationship, NodeExtension
 from graph.graph_client.client import GraphClient
+
 
 
 class GraphElementBehavior:
@@ -630,3 +632,63 @@ class GraphElementBehavior:
                 ("unit_id", str(unit_id))
             ) from e
         
+    @staticmethod
+    async def get_all_provenance(
+        graph_client: GraphClient,
+        unit_id: UUID
+    ) -> dict[str, list[dict[str, Any]]]:
+        """_summary_
+        Get all system provenance for a given unit_id. check schema.py for query details.
+
+        Args:
+            graph_client (Graph): The graph client to interact with the graph database.
+            unit_id (UUID): The unique identifier for the unit.
+        Returns:
+            list[dict]: A list of system provenance records belonging to the given unit.
+        """
+        if not graph_client:
+            raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
+        if not unit_id:
+            raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
+
+        try:
+            query = QUERY_ALL_PROVENANCE()
+            result = await graph_client.run(query, unit_id=str(unit_id))
+
+            node_id = set()
+            rel_id = set()
+
+            nodes: list[dict[str, Any]] = []
+            rels: list[dict[str, Any]] = []
+            out: dict[str, list[dict[str, Any]]] = {"nodes": nodes, "rels": rels}
+            for record in result:
+                row: dict[str, Any] = {}
+                # convert node dict to prefab format
+                record_provenance = record["provenance"] if "provenance" in record else None
+                if record_provenance is not None:
+                    ## get nlst from record_provenance
+                    nlst = record_provenance.get("nlst", [])
+                    prefab_node = to_prefab(nlst)
+                    ## get rlst from record_provenance
+                    rlst = record_provenance.get("rlst", [])
+                    prefab_rel = to_prefab(rlst)
+                    ## append to nodes and rels
+                    for n in prefab_node:
+                        nid = n.get("elementId")
+                        if nid is not None and nid not in node_id:
+                            node_id.add(nid)
+                            nodes.append(n)
+                    for r in prefab_rel:
+                        rid = r.get("elementId")
+                        if rid is not None and rid not in rel_id:
+                            rel_id.add(rid)
+                            rels.append(r)
+                    ## set to out
+                    out["nodes"] = nodes
+                    out["rels"] = rels
+            return out
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to get system provenance for unit: {e}",
+                ("unit_id", str(unit_id))
+            ) from e
