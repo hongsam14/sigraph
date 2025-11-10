@@ -3,7 +3,7 @@ This module defines the schema for graph elements in the Neo4j database.
 It includes constraints for labels and query templates used in graph operations.
 """
 
-from typing import Literal
+from typing import LiteralString, cast
 from graph.provenance.type import ArtifactType
 
 # constraints for graph element labels
@@ -20,7 +20,7 @@ CONSTRAINTS = {
     "Trace": "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Trace) REQUIRE n.trace_id IS UNIQUE",
 }
 
-def QUERY_ARTIFACT(artifact_type: ArtifactType) -> str:
+def QUERY_ARTIFACT(artifact_type: ArtifactType) -> LiteralString:
     """
     Generates a Cypher query to retrieve an artifact node based on its type and artifact property.
     
@@ -30,13 +30,13 @@ def QUERY_ARTIFACT(artifact_type: ArtifactType) -> str:
     Returns:
         node : The matching artifact node.
     """
-    return f"""\
+    return cast(LiteralString, f"""\
     MATCH (n:{artifact_type.value})
     WHERE n.artifact = $artifact
     RETURN n as node
-    """
+    """)
 
-def QUERY_TRACE_WITH_TRACE_ID() -> str:
+def QUERY_TRACE_WITH_TRACE_ID() -> LiteralString:
     """
     Generates a Cypher query to retrieve trace nodes based on trace_id.
 
@@ -53,7 +53,7 @@ def QUERY_TRACE_WITH_TRACE_ID() -> str:
     RETURN n as node
     """
 
-def QUERY_TRACES() -> str:
+def QUERY_TRACES() -> LiteralString:
     """
     Generates a Cypher query to retrieve all trace nodes for a given unit_id.
 
@@ -69,7 +69,7 @@ def QUERY_TRACES() -> str:
     RETURN n AS node
     """
 
-def QUERY_RULE() -> str:
+def QUERY_RULE() -> LiteralString:
     """
     Generates a Cypher query to retrieve rule nodes based on rule_id.
 
@@ -85,7 +85,7 @@ def QUERY_RULE() -> str:
     RETURN n as node
     """
 
-def QUERY_RELATED_TRACES(max_hop: int) -> str:
+def QUERY_RELATED_TRACES(max_hop: int) -> LiteralString:
     """
     Generates a Cypher query to retrieve related trace nodes within a specified hop distance.
 
@@ -99,16 +99,16 @@ def QUERY_RELATED_TRACES(max_hop: int) -> str:
     # check that max_hop is greater than 1
     if max_hop < 1:
         raise ValueError("max_hop must be greater than 0")
-    return f"""\
+    return cast(LiteralString, f"""\
     MATCH (t1:Trace {{trace_id: $traceId, unit_id: $unitId}})
     MATCH p = (t1)-[*1..{max_hop}]-(t2:Trace {{unit_id: $unitId}})
     WITH t1, t2, p
     WHERE elementId(t1) < elementId(t2)
     RETURN t1, t2
     ORDER BY length(p) ASC
-    """
+    """)
 
-def FLUSH_SINGLE_ENTITIES_WITH_TRACE() -> str:
+def FLUSH_SINGLE_ENTITIES_WITH_TRACE() -> LiteralString:
     """
     Generates a Cypher query to flush orphaned or inconsistent data in the Neo4j database.
 
@@ -121,4 +121,30 @@ def FLUSH_SINGLE_ENTITIES_WITH_TRACE() -> str:
       AND COUNT{ (t)-[:CONTAINS]->() } = 1
       AND COUNT{ (n)--() } = 1
     DETACH DELETE t, n
+    """
+
+def QUERY_ALL_PROVENANCE() -> LiteralString:
+    """
+    Generates a Cypher query to retrieve all provenance data including artifacts, traces, and their relationships.
+    Provenance refers to how a process references an asset and makes modifications to the system.
+
+    Returns:
+        nodes and relationships representing the system provenance
+    """
+    return """\
+    MATCH (t:Trace {unit_id:$unit_id})-[:CONTAINS*1..]->(src)
+    MATCH p = (src)-[*1..5]->(dst)
+    WHERE NOT 'PROCESS' IN labels(dst)
+    AND EXISTS( (t)-[:CONTAINS*1..]->(dst) )
+    WITH nodes(p) AS ns, relationships(p) AS rs
+    RETURN {
+    nlst: [n IN ns | {elementId: elementId(n), labels: labels(n), properties: properties(n)}],
+    rlst:  [r IN rs | {
+        elementId: elementId(r),
+        startNodeElementId: elementId(startNode(r)),
+        endNodeElementId: elementId(endNode(r)),
+        type: type(r),
+        properties: properties(r)
+        }]
+    } AS provenance;
     """

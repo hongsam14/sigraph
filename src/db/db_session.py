@@ -8,11 +8,10 @@ to support OpenSearch, you need to use the `elasticsearch` library 7.13 or earli
 
 from typing import Any
 from uuid import UUID
-from fastapi.encoders import jsonable_encoder
 from opensearchpy import OpenSearch
+from opensearchpy.helpers import streaming_bulk
 from db.db_model import SyslogModel, SyslogSequence, install_syslog_template_and_index
 from db.exceptions import DatabaseInteractionException
-import traceback
 
 
 class DBSession:
@@ -30,8 +29,11 @@ class DBSession:
         try:
             self.__client = OpenSearch(
                 hosts=[{"host": uri, "port": 9200}],
-                http_compress=True,
+                http_compress=False,
                 use_ssl=False,
+                timeout=60,
+                max_retries=3,
+                retry_on_timeout=True,
             )
         except ConnectionError as e:
             self.__logger.error(f"Failed to connect to OpenSearch at {uri}. Please check your connection settings.")
@@ -58,8 +60,12 @@ class DBSession:
             self.__client = None
             self.__logger.info("Closed connection to OpenSearch.")
 
+    def __actions(self, docs:list[SyslogModel]):
+        for d in docs:
+            yield {"_op_type":"index","_index":self.__index_name,"_source":d.model_dump()}
 
-    async def store_syslog_object(self, syslog_object: SyslogModel):
+
+    async def store_syslog_object(self, syslog_bulk: list[SyslogModel]):
         """_summary_
         Save a SyslogObject to OpenSearch.
 
@@ -70,18 +76,20 @@ class DBSession:
             DatabaseInteractionException: If there is an error during the save operation.
         """
         try:
-            doc = jsonable_encoder(syslog_object)
-            self.__client.index(
-                index=self.__index_name,
-                body=doc,
-                params={"refresh": "wait_for"},  # Ensures the document is searchable immediately
-            )
+            for ok, info in streaming_bulk(
+                client=self.__client,
+                actions=self.__actions(syslog_bulk),
+                chunk_size=500,
+                max_retries=3,
+                raise_on_error=False,
+                request_timeout=60
+            ):
+                pass
         except Exception as e:
-            print(traceback.format_exc())
             self.__logger.error(f"Failed to save SyslogObject: {e}")
             raise DatabaseInteractionException(
                 f"Failed to save SyslogObject: {e}",
-                (str(syslog_object),)
+                (str(),)
             ) from e
         
 

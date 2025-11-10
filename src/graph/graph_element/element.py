@@ -3,12 +3,11 @@ This module defines the elements for the syscall graph data structure.
 """
 from datetime import datetime
 from neo4j.time import DateTime
-from py2neo import Node, Relationship
-from pydantic import BaseModel
 from typing import Optional, List
 from uuid import UUID
 from graph.provenance.type import Artifact, ActionType, ActorType
 from graph.graph_element.exceptions import InvalidElementException
+from graph.graph_client.node import Node, Relationship, NodeExtension
 
 class SigraphNode:
     """_summary_
@@ -27,11 +26,12 @@ class SigraphNode:
     Each node has a unique id to distinguish user environment, an associated artifact, and optional parent artifacts.
     """
 
+    __labels: List[str]
     __artifact: Artifact
     __process_name: Optional[str]
     __related_span_ids: Optional[List[str]]
     __related_trace_ids: Optional[List[str]]
-    __neo_node: Node
+    __graph_node: Node
 
     def __init__(self,
                  artifact: Artifact,
@@ -40,10 +40,11 @@ class SigraphNode:
                  related_trace_ids: Optional[List[str]] = None):
 
         self.__artifact = artifact
+        self.__labels = [str(artifact.artifact_type.value)]
         self.__process_name = process_name
         self.__related_span_ids = related_span_ids
         self.__related_trace_ids = related_trace_ids
-        self.__neo_node = None
+        self.__graph_node = None
 
     @property
     def artifact(self) -> Artifact:
@@ -65,7 +66,7 @@ class SigraphNode:
         """Get the process name associated with the node"""
         return self.__process_name
 
-    def py2neo_node(self) -> Node:
+    def to_node(self) -> Node:
         """_summary
         Convert the SigraphNode instance to a py2neo Node object.
         This method creates a Node object with essential properties and returns it.
@@ -73,14 +74,17 @@ class SigraphNode:
             Node: The created py2neo Node object.
         """
         ## Check if the node has already been created
-        if self.__neo_node is not None:
-            return self.__neo_node
+        if self.__graph_node is not None:
+            return self.__graph_node
 
         ## Create a py2neo Node object from the SigraphNode instance with essential properties.
-        current: Node = Node(str(self.artifact.artifact_type.value),
-                             artifact=str(self.artifact),
-                             )
-        
+        current: Node = Node(
+            labels=self.__labels,
+            properties={
+                "artifact": str(self.artifact),
+            }
+        )
+
         ## add additional properties to the node
         if self.image:
             current["image"] = self.image
@@ -92,10 +96,7 @@ class SigraphNode:
             current["related_trace_ids"] = self.related_trace_ids
 
         ## Store the created node in the instance variable
-        self.__neo_node = current
-
-        print(f"Created py2neo node: {current}")
-
+        self.__graph_node = current
         return current
 
 
@@ -123,7 +124,7 @@ class SigraphRelationship:
     __actor_type: ActorType
     __start_time: datetime
     __weight: int
-    __neo_relationship: Relationship
+    __graph_relationship: Relationship
 
     def __init__(self,
                  process_node: SigraphNode,
@@ -140,7 +141,7 @@ class SigraphRelationship:
         self.__actor_type = actor_type
         self.__start_time = start_time
         self.__weight = weight
-        self.__neo_relationship = None
+        self.__graph_relationship = None
 
     @property
     def process_node(self) -> SigraphNode:
@@ -171,8 +172,8 @@ class SigraphRelationship:
     def weight(self) -> int:
         """Get the weight of the relationship"""
         return self.__weight
-    
-    def py2neo_relationship(self) -> Relationship:
+
+    def to_relationship(self) -> Relationship:
         """_summary_
         Convert the SigraphRelationship instance to a py2neo Relationship object.
         This method creates a relationship based on the actor type and returns it.
@@ -184,32 +185,38 @@ class SigraphRelationship:
         """
 
         ## Check if the relationship has already been created
-        if self.__neo_relationship is not None:
-            return self.__neo_relationship
+        if self.__graph_relationship is not None:
+            return self.__graph_relationship
 
         if self.actor_type == ActorType.READ_RECV:
             rel: Relationship = Relationship(
-                self.__action_node.py2neo_node(),
-                str(self.action_type.value),
-                self.__process_node.py2neo_node(),
-                start_time = self.start_time,
-                weight = self.weight,
+                start=self.__action_node.to_node(),
+                type=str(self.action_type.value),
+                end=self.__process_node.to_node(),
+                properties={
+                    "start_time": self.start_time,
+                    "weight": self.weight,
+                }
             )
         elif self.actor_type == ActorType.WRITE_SEND:
             rel: Relationship = Relationship(
-                self.__process_node.py2neo_node(),
-                str(self.action_type.value),
-                self.__action_node.py2neo_node(),
-                start_time = self.start_time,
-                weight = self.weight,
+                start=self.__process_node.to_node(),
+                type=str(self.action_type.value),
+                end=self.__action_node.to_node(),
+                properties={
+                    "start_time": self.start_time,
+                    "weight": self.weight,
+                }
             )
         elif self.actor_type == ActorType.NOT_ACTOR:
             rel: Relationship = Relationship(
-                self.__process_node.py2neo_node(),
-                str(self.action_type.value),
-                self.__action_node.py2neo_node(),
-                start_time = self.start_time,
-                weight = self.weight,
+                start=self.__process_node.to_node(),
+                type=str(self.action_type.value),
+                end=self.__action_node.to_node(),
+                properties={
+                    "start_time": self.start_time,
+                    "weight": self.weight,
+                }
             )
         else:
             raise InvalidElementException(
@@ -218,16 +225,17 @@ class SigraphRelationship:
             )
         
         ## Store the created relationship in the instance variable
-        self.__neo_relationship = rel
+        self.__graph_relationship = rel
         return rel
     
 class SigraphTrace:
+    __labels: list[str] = ["Trace"]
     __trace_id: str
     __unit_id: UUID
     __start_time: datetime
     __representative_process_name: Optional[str]
     __span_count: Optional[int]
-    __neo_node: Node
+    __graph_node: Node
 
     def __init__(self,
                  trace_id: str,
@@ -241,7 +249,7 @@ class SigraphTrace:
         self.__start_time = start_time
         self.__representative_process_name = representative_process_name
         self.__span_count = span_count
-        self.__neo_node = None
+        self.__graph_node = None
 
     @property
     def trace_id(self) -> str:
@@ -284,7 +292,7 @@ class SigraphTrace:
         self.__span_count = value
 
     
-    def py2neo_node(self) -> Node:
+    def to_node(self) -> Node:
         """_summary_
         Convert the SigraphTrace instance to a py2neo Node object.
         This method creates a Node object with essential properties and returns it.
@@ -292,18 +300,19 @@ class SigraphTrace:
             Node: The created py2neo Node object.
         """
         ## Check if the node has already been created
-        if self.__neo_node is not None:
+        if self.__graph_node is not None:
             ## check for node updates
-            if (self.__neo_node.get("span_count") == self.__span_count) and \
-                (self.__neo_node.get("start_time") == self.__start_time) and \
-                (self.__neo_node.get("representative_process_name") == self.__representative_process_name):
-                return self.__neo_node
+            if (self.__graph_node.get("span_count") == self.__span_count) and \
+                (self.__graph_node.get("start_time") == self.__start_time) and \
+                (self.__graph_node.get("representative_process_name") == self.__representative_process_name):
+                return self.__graph_node
 
         ## Create a py2neo Node object from the SigraphTraceDocument instance with essential properties.
-        current: Node = Node("Trace",
-                             trace_id=self.trace_id,
-                             unit_id=str(self.unit_id)
-                             )
+        current: Node = Node(labels=self.__labels,
+                             properties={
+                                 "trace_id": self.trace_id,
+                                 "unit_id": str(self.unit_id)
+                             })
         ## append additional properties to the node
         if self.__start_time:
             current["start_time"] = self.__start_time
@@ -313,7 +322,7 @@ class SigraphTrace:
             current["span_count"] = self.__span_count
         
         ## Store the created node in the instance variable
-        self.__neo_node = current
+        self.__graph_node = current
 
         return current
 
@@ -322,14 +331,14 @@ class SigraphTraceRelationship:
     __trace_node: SigraphTrace
     __syscall_node: SigraphNode
     __relation_name: str = "CONTAINS"
-    __neo_relationship: Relationship
+    __graph_relationship: Relationship
 
     def __init__(self,
                 trace_node: SigraphTrace,
                 node: SigraphNode):
         self.__trace_node = trace_node
         self.__syscall_node = node
-        self.__neo_relationship = None
+        self.__graph_relationship = None
 
     @property
     def trace_node(self) -> SigraphTrace:
@@ -343,32 +352,33 @@ class SigraphTraceRelationship:
     def relation_name(self) -> str:
         return self.__relation_name
     
-    def py2neo_relationship(self) -> Relationship:
-        if self.__neo_relationship is not None:
-            return self.__neo_relationship
+    def to_relationship(self) -> Relationship:
+        if self.__graph_relationship is not None:
+            return self.__graph_relationship
         rel: Relationship = Relationship(
-            self.__trace_node.py2neo_node(),
-            self.__relation_name,
-            self.__syscall_node.py2neo_node(),
+            start=self.__trace_node.to_node(),
+            type=self.__relation_name,
+            end=self.__syscall_node.to_node(),
         )
-        self.__neo_relationship = rel
+        self.__graph_relationship = rel
         return rel
     
 
 class SigraphSigmaRule:
+    __labels: list[str] = ["SigmaRule"]
     __rule_id: str
-    __neo_node: Node
+    __graph_node: Node
 
     def __init__(self,
                  rule_id: str):
         self.__rule_id = rule_id
-        self.__neo_node = None
+        self.__graph_node = None
 
     @property
     def rule_id(self) -> str:
         return self.__rule_id
 
-    def py2neo_node(self) -> Node:
+    def to_node(self) -> Node:
         """_summary
         Convert the SigraphSigmaRule instance to a py2neo Node object.
         This method creates a Node object with essential properties and returns it.
@@ -376,16 +386,19 @@ class SigraphSigmaRule:
             Node: The created py2neo Node object.
         """
         ## Check if the node has already been created
-        if self.__neo_node is not None:
-            return self.__neo_node
+        if self.__graph_node is not None:
+            return self.__graph_node
 
         ## Create a py2neo Node object from the SigraphSigmaRule instance with essential properties.
-        current: Node = Node("SigmaRule",
-                             rule_id=self.rule_id,
-                             )
-        
+        current: Node = Node(
+            labels=self.__labels,
+            properties={
+                "rule_id": self.rule_id
+            }
+        )
+
         ## Store the created node in the instance variable
-        self.__neo_node = current
+        self.__graph_node = current
 
         return current
 
@@ -393,14 +406,14 @@ class SigraphSigmaRuleRelationship:
     __rule_node: SigraphSigmaRule
     __syscall_node: SigraphNode
     __relation_name: str = "MATCHES"
-    __neo_relationship: Relationship
+    __graph_relationship: Relationship
 
     def __init__(self,
                 rule_node: SigraphSigmaRule,
                 node: SigraphNode):
         self.__rule_node = rule_node
         self.__syscall_node = node
-        self.__neo_relationship = None
+        self.__graph_relationship = None
 
     @property
     def rule_node(self) -> SigraphSigmaRule:
@@ -414,13 +427,13 @@ class SigraphSigmaRuleRelationship:
     def relation_name(self) -> str:
         return self.__relation_name
     
-    def py2neo_relationship(self) -> Relationship:
-        if self.__neo_relationship is not None:
-            return self.__neo_relationship
+    def to_relationship(self) -> Relationship:
+        if self.__graph_relationship is not None:
+            return self.__graph_relationship
         rel: Relationship = Relationship(
-            self.__rule_node.py2neo_node(),
-            self.__relation_name,
-            self.__syscall_node.py2neo_node(),
+            start=self.__rule_node.to_node(),
+            type=self.__relation_name,
+            end=self.__syscall_node.to_node(),
         )
-        self.__neo_relationship = rel
+        self.__graph_relationship = rel
         return rel
