@@ -135,7 +135,9 @@ def QUERY_ALL_PROVENANCE() -> LiteralString:
     MATCH (t:Trace {unit_id:$unit_id})-[:CONTAINS*1..]->(src)
     MATCH p = (src)-[*1..5]->(dst)
     WHERE (NOT 'PROCESS' IN labels(dst) OR NOT 'PROCESS' IN labels(src))
-    AND EXISTS( (t)-[:CONTAINS*1..]->(dst) )
+        AND NOT (src:MODULE)
+        AND EXISTS((t)-[:CONTAINS*1..]->(dst))
+    WITH nodes(p) AS ns, relationships(p) AS rs
     RETURN {
     nlst: [n IN ns | {elementId: elementId(n), labels: labels(n), properties: properties(n)}],
     rlst:  [r IN rs | {
