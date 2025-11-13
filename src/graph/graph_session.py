@@ -12,6 +12,7 @@ from typing import Any, Optional
 from uuid import UUID
 from graph.provenance.type import SystemProvenance, ArtifactType
 from graph.graph_client.client import GraphClient
+from graph.graph_element.element import SigraphIoC, SigraphSummary
 from graph.graph_element.element_behavior import GraphElementBehavior
 from graph.graph_element.helper import temporal_encoder
 from graph.graph_model import GraphNode, GraphTraceNode
@@ -131,12 +132,12 @@ class GraphSession:
         """
         self.__logger.info("Cleaning up debris in the Neo4j database.")
         try:
-            result: dict = await GraphElementBehavior.clean_debris(
+            result: SigraphSummary = await GraphElementBehavior.clean_debris(
                 graph_client=self.__client,
                 unit_id=unit_id
             )
             self.__logger.info(f"Cleaned debris: {result}")
-            return result
+            return result.model_dump()
         except Exception as e:
             self.__logger.error(
                 f"Failed to clean debris in the Neo4j database: {str(e)}"
@@ -253,3 +254,77 @@ class GraphSession:
             )
             # raise e
             return None
+
+    async def flush_unit_data(self, unit_id: UUID) -> Optional[dict]:
+        """_summary_
+        Flushes all data related to a specific unit ID from the Neo4j database.
+
+        Args:
+            unit_id (UUID): The unit ID whose data is to be flushed.
+
+        Returns:
+            dict: A dictionary containing the result of the flush operation.
+        """
+        self.__logger.info(f"Flushing data for unit_id={unit_id}")
+        try:
+            result: SigraphSummary = await GraphElementBehavior.flush_unit_data(
+                graph_client=self.__client,
+                unit_id=unit_id
+            )
+            self.__logger.info(f"Flushed data for unit_id={unit_id}: {result}")
+            return result.model_dump()
+        except Exception as e:
+            self.__logger.error(
+                f"Failed to flush data for unit_id={unit_id}: {str(e)}"
+            )
+            # raise e
+            return None
+        
+    async def flush_all_debris(self) -> Optional[dict]:
+        """_summary_
+        Flushes all debris (orphaned or inconsistent data) from the Neo4j database for all unit IDs.
+        """
+        self.__logger.info("Flushing debris for all unit IDs")
+        try:
+            result: SigraphSummary = await GraphElementBehavior.clean_all_debris(
+                graph_client=self.__client,
+            )
+            # iterate through each unit_id and clean debris
+            self.__logger.info("Flushed debris for all unit IDs")
+            return result.model_dump()
+        except Exception as e:
+            self.__logger.error(
+                f"Failed to flush debris for all unit IDs: {str(e)}"
+            )
+            # raise e
+            return None
+        
+    async def get_all_iocs(self,
+                           unit_id: UUID) -> list[dict] | None:
+        """_summary_
+        Retrieves all Indicators of Compromise (IoCs) for a given unit ID.
+        Args:
+            unit_id (UUID): The unit ID to query.
+        
+        Returns:
+            list[SigraphIoC]: A list of SigraphIoC objects representing the IoCs.
+        
+        Raises:
+            GraphDBInteractionException: If there is an error during the retrieval operation.
+        """
+        self.__logger.info(f"Retrieving all IoCs for unit_id={unit_id}")
+        try:
+            result: list[SigraphIoC] = await GraphElementBehavior.get_all_iocs(
+                graph_client=self.__client,
+                unit_id=unit_id
+            )
+            self.__logger.info(f"Retrieved {len(result)} IoCs for unit_id={unit_id}")
+            return [ioc.model_dump() for ioc in result]
+        except Exception as e:
+            self.__logger.error(
+                f"Failed to retrieve IoCs for unit_id={unit_id}: {str(e)}"
+            )
+            # raise e
+            return None
+
+    

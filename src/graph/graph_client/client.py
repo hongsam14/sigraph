@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 from typing import List, Dict, Union, Tuple, Any, LiteralString, Callable, cast
 from pydantic import SecretStr
-from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncResult, AsyncSession
+from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncResult, AsyncSession, ResultSummary
 from neo4j.exceptions import ServiceUnavailable, TransientError
 from .node import Node, Relationship, NodeExtension
 
@@ -90,6 +90,37 @@ class GraphClient:
 
                     result: AsyncResult = await session.run(cypher, **params)
                     return await result.data()
+            except (ServiceUnavailable, TransientError) as e:
+                # check attempt count
+                # if last attempt, raise the exception
+                if attempt_count == self.__retry_count - 1:
+                    self.__logger.error(
+                        f"All {self.__retry_count} attempts failed. "
+                        f"Raising exception."
+                    )
+                    raise e
+                # sleep for retry delay
+                # delay increases with each attempt (exponential backoff)
+                await asyncio.sleep(self.__retry_delay * (attempt_count ** 2))
+        raise RuntimeError("Unreachable code reached in run()")
+
+    async def consume(self, cypher: LiteralString, **params: Any) -> ResultSummary:
+        """_summary_
+        Executes a Cypher query against the Neo4j database.
+
+        Args:
+            cypher (str): The Cypher query to execute.
+            params (Any): Parameters for the Cypher query.
+
+        Returns:
+            ResultSummary: The result of the query as a dictionaries.
+        """
+        for attempt_count in range(self.__retry_count):
+            try:
+                async with self.__driver.session(database=self.__database) as session:
+                    ## set query parameters
+                    result: AsyncResult = await session.run(cypher, **params)
+                    return await result.consume()
             except (ServiceUnavailable, TransientError) as e:
                 # check attempt count
                 # if last attempt, raise the exception
