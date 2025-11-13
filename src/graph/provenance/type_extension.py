@@ -34,6 +34,36 @@ class TypeExtension:
             raise provenance_exceptions.InvalidInputException(f"{data} is not a valid ArtifactType", ("ArtifactType", str(ve)))
 
     @staticmethod
+    def from_string_to_artifact_name_and_type(data: str) -> tuple[str, provenance_type.ArtifactType | None]:
+        """_summary_
+        Create an Artifact name from a Artifact formatted string.
+
+        Args:
+            data (str): The string to convert.
+        
+        Returns:
+            str: The corresponding Artifact name.
+        
+        Raises:
+            ValueError: If the data is empty.
+        """
+        if not data:
+            raise provenance_exceptions.InvalidInputException("Data cannot be empty", ("data", type(data).__name__))
+        try:
+            ## check if the data is in ArtifactType
+            ## split the data by '@' and get the first part
+            if not "@" in data:
+                return data, None
+            tokens: list[str] = data.split("@")
+            artifact_name: str = tokens[0]
+            if len(tokens) < 2:
+                return artifact_name, None
+            return artifact_name, TypeExtension.from_string_to_artifact_type(tokens[1])
+        except Exception as e:
+            raise provenance_exceptions.InvalidInputException(f"Error while parsing artifact name: {e}", ("data", str(e)))
+
+
+    @staticmethod
     def from_string_to_action_type(data: str) -> provenance_type.ActionType:
         """_summary_
         Create an ActionType from a string.
