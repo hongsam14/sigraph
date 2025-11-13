@@ -3,7 +3,7 @@ This module provides extensions for graph elements, including conversion from py
 and upserting SystemProvenance into the graph.
 """
 from datetime import datetime
-from typing import Any, Dict, Optional, LiteralString, cast
+from typing import Any, List, Optional, LiteralString, cast
 from uuid import UUID
 from graph.graph_element.schema import (
     CONSTRAINTS,
@@ -13,10 +13,14 @@ from graph.graph_element.schema import (
     QUERY_TRACE_WITH_TRACE_ID,
     QUERY_RULE,
     QUERY_ALL_PROVENANCE,
-    FLUSH_SINGLE_ENTITIES_WITH_TRACE
+    QUERY_ALL_UNIT_IDS,
+    FLUSH_SINGLE_ENTITIES_WITH_TRACE,
+    FLUSH_UNIT_DATA,
+    QUERY_ALL_IoCs
     )
+from neo4j import ResultSummary, SummaryCounters
 from graph.provenance.type import SystemProvenance, Actor, Artifact
-from graph.provenance.type_extension import ActorExtension, ArtifactExtension
+from graph.provenance.type_extension import ActorExtension, ArtifactExtension, TypeExtension
 from graph.graph_element.exceptions import InvalidInputException, InvalidElementException, GraphDBInteractionException
 from graph.graph_element.element import (
                                         SigraphNode,
@@ -24,7 +28,8 @@ from graph.graph_element.element import (
                                         SigraphTrace,
                                         SigraphTraceRelationship,
                                         SigraphSigmaRule,
-                                        SigraphSigmaRuleRelationship
+                                        SigraphSigmaRuleRelationship,
+                                        SigraphSummary, SigraphIoC
                                         )
 from graph.graph_element.helper import to_prefab
 from graph.graph_client.node import Node, Relationship, NodeExtension
@@ -519,7 +524,7 @@ class GraphElementBehavior:
     @staticmethod
     async def clean_debris(
                      graph_client: GraphClient,
-                     unit_id: UUID):
+                     unit_id: UUID) -> SigraphSummary:
         """_summary_
         Cleans up any orphaned or inconsistent data in the Neo4j database.
         """
@@ -531,21 +536,20 @@ class GraphElementBehavior:
         try:
             ## run task with transaction
             ## because this task is deleting nodes, we need to use a transaction
-            cursor = await graph_client.run(
+            cursor: ResultSummary = await graph_client.consume(
                 cypher=query,
                 unit_id=str(unit_id)
             )
             # return the result
-            if not cursor or len(cursor) == 0:
-                return {
-                    "nodes_deleted": 0,
-                    "relationships_deleted": 0
-                }
-            stats = cursor[0] or {}
-            return {
-                "nodes_deleted": stats.get("nodes_deleted", 0),
-                "relationships_deleted": stats.get("relationships_deleted", 0)
-            }
+            if not cursor:
+                raise RuntimeError("No result returned from clean_debris")
+            stats: SummaryCounters = cursor.counters
+            return SigraphSummary(
+                nodes_created=stats.nodes_created,
+                relationships_created=stats.relationships_created,
+                nodes_deleted=stats.nodes_deleted,
+                relationships_deleted=stats.relationships_deleted
+            )
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to clean debris in the graph: {e}",
@@ -635,7 +639,8 @@ class GraphElementBehavior:
     @staticmethod
     async def get_all_provenance(
         graph_client: GraphClient,
-        unit_id: UUID
+        unit_id: UUID,
+        max_hop: int = 5
     ) -> dict[str, list[dict[str, Any]]]:
         """_summary_
         Get all system provenance for a given unit_id. check schema.py for query details.
@@ -652,7 +657,7 @@ class GraphElementBehavior:
             raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
 
         try:
-            query = QUERY_ALL_PROVENANCE()
+            query = QUERY_ALL_PROVENANCE(max_hop)
             result = await graph_client.run(query, unit_id=str(unit_id))
 
             node_id = set()
@@ -690,5 +695,157 @@ class GraphElementBehavior:
         except Exception as e:
             raise GraphDBInteractionException(
                 f"Failed to get system provenance for unit: {e}",
+                ("unit_id", str(unit_id))
+            ) from e
+
+    @staticmethod
+    async def flush_unit_data(
+        graph_client: GraphClient,
+        unit_id: UUID) -> SigraphSummary:
+        """_summary_
+        Flush all data related to a specific unit_id from the graph database.
+
+        Args:
+            graph_client (Graph): The graph client to interact with the graph database.
+            unit_id (UUID): The unique identifier for the unit.
+        
+        Returns:
+            dict: A dictionary containing the number of nodes and relationships deleted.
+        """
+        if not graph_client:
+            raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
+        if not unit_id:
+            raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
+
+        try:
+            query = FLUSH_UNIT_DATA()
+            cursor: ResultSummary = await graph_client.consume(
+                cypher=query,
+                unit_id=str(unit_id)
+            )
+            # return the result
+            if not cursor:
+                raise RuntimeError("No result returned from flush_unit_data") 
+            stats: SummaryCounters = cursor.counters
+            return SigraphSummary(
+                nodes_created=stats.nodes_created,
+                relationships_created=stats.relationships_created,
+                nodes_deleted=stats.nodes_deleted,
+                relationships_deleted=stats.relationships_deleted
+            )
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to flush unit data in the graph: {e}",
+                ("unit_id", str(unit_id))
+            ) from e
+
+    @staticmethod
+    async def clean_all_debris(
+                     graph_client: GraphClient) -> SigraphSummary:
+        """_summary_
+        Cleans up any orphaned or inconsistent data in the Neo4j database.
+        """
+        query = QUERY_ALL_UNIT_IDS()
+        if not graph_client:
+            raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
+        try:
+            ## run task with transaction
+            ## because this task is deleting nodes, we need to use a transaction
+            cursor: List[dict[str, Any]] = await graph_client.run(
+                cypher=query
+            )
+            # return the result
+            if not cursor or len(cursor) == 0:
+                raise RuntimeError("No result returned from clean_all_debris") 
+            ## get all unit_ids from cursor and call clean_debris for each unit_id
+            total_results: SigraphSummary = SigraphSummary(
+                nodes_created=0,
+                relationships_created=0,
+                nodes_deleted=0,
+                relationships_deleted=0
+            ) 
+            for record in cursor:
+                uid_str = record.get("unit_id")
+                if uid_str is not None:
+                    result: SigraphSummary = await GraphElementBehavior.clean_debris(
+                        graph_client=graph_client,
+                        unit_id=UUID(uid_str)
+                    )
+                    total_results.nodes_deleted += result.nodes_deleted
+                    total_results.relationships_deleted += result.relationships_deleted
+                    total_results.nodes_created += result.nodes_created
+                    total_results.relationships_created += result.relationships_created
+            return total_results
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to clean debris in the graph: {e}",
+                ()
+            ) from e
+
+    @staticmethod
+    async def get_all_iocs(
+        graph_client: GraphClient,
+        unit_id: UUID
+    ) -> list[SigraphIoC]:
+        """_summary_
+        Get all IOC artifacts for a given unit_id. check schema.py for query details.
+
+        Args:
+            graph_client (Graph): The graph client to interact with the graph database.
+            unit_id (UUID): The unique identifier for the unit.
+
+        Returns:
+            list[dict]: A list of IOC artifact records belonging to the given unit.
+
+        """
+        if not graph_client:
+            raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
+        if not unit_id:
+            raise InvalidInputException("Unit ID cannot be empty", ("unit_id", type(unit_id).__name__))
+
+        try:
+            query = QUERY_ALL_IoCs()
+            result = await graph_client.run(query, unit_id=str(unit_id))
+            if not result or len(result) == 0:
+                return []
+            t_query = QUERY_TRACES()
+            t_result = await graph_client.run(t_query, unit_id=str(unit_id))
+            if not t_result or len(t_result) == 0:
+                raise RuntimeError("No traces found for the given unit_id when getting IOC artifacts")
+            ## get all trace_ids from t_result
+            trace_id_set = set()
+            for t_record in t_result:
+                trace_node = t_record.get("node")
+                if trace_node and "trace_id" in trace_node:
+                    trace_id_set.add(trace_node["trace_id"])
+            # filter related traces in result
+            iocs: list[SigraphIoC] = []
+            for record in result:
+                ioc_record = record.get("iocs")
+                if ioc_record is None:
+                    continue
+                artfct_str = ioc_record.get("artifact")
+                if artfct_str is None:
+                    continue
+                real_ids = set()
+                ## filter related_trace_ids to only include those in trace_id_set
+                related_trace_ids = ioc_record.get("related_trace_ids", [])
+                for rt_id in related_trace_ids:
+                    if rt_id in trace_id_set:
+                        real_ids.add(rt_id)
+                artifact_name, artifact_type = TypeExtension.from_string_to_artifact_name_and_type(artfct_str)
+                if artifact_name is None or artifact_type is None:
+                    continue
+                artfct = SigraphIoC(
+                    image=ioc_record.get("image", "Unknown"),
+                    artifact=artifact_name,
+                    artifact_type=str(artifact_type),
+                    related_trace_ids=list(real_ids)
+                )
+                iocs.append(artfct)
+            return iocs
+        except Exception as e:
+            raise GraphDBInteractionException(
+                f"Failed to get IOC artifacts for unit: {e}",
                 ("unit_id", str(unit_id))
             ) from e

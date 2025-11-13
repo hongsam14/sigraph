@@ -2,6 +2,7 @@
 This module defines the elements for the syscall graph data structure.
 """
 from datetime import datetime
+from pydantic import BaseModel
 from neo4j.time import DateTime
 from typing import Optional, List
 from uuid import UUID
@@ -437,3 +438,18 @@ class SigraphSigmaRuleRelationship:
         )
         self.__graph_relationship = rel
         return rel
+    
+class SigraphSummary(BaseModel):
+    """_summary_
+    Represents a summary of the graph operation results.
+    """
+    nodes_created: int
+    relationships_created: int
+    nodes_deleted: int
+    relationships_deleted: int
+
+class SigraphIoC(BaseModel):
+    image: str
+    artifact: str
+    artifact_type: str
+    related_trace_ids: List[str]
