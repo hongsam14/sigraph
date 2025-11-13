@@ -85,6 +85,7 @@ def QUERY_RULE() -> LiteralString:
     RETURN n as node
     """
 
+
 def QUERY_RELATED_TRACES(max_hop: int) -> LiteralString:
     """
     Generates a Cypher query to retrieve related trace nodes within a specified hop distance.
@@ -123,7 +124,7 @@ def FLUSH_SINGLE_ENTITIES_WITH_TRACE() -> LiteralString:
     DETACH DELETE t, n
     """
 
-def QUERY_ALL_PROVENANCE() -> LiteralString:
+def QUERY_ALL_PROVENANCE(max_hop: int) -> LiteralString:
     """
     Generates a Cypher query to retrieve all provenance data including artifacts, traces, and their relationships.
     Provenance refers to how a process references an asset and makes modifications to the system.
@@ -131,21 +132,62 @@ def QUERY_ALL_PROVENANCE() -> LiteralString:
     Returns:
         nodes and relationships representing the system provenance
     """
-    return """\
-    MATCH (t:Trace {unit_id:$unit_id})-[:CONTAINS*1..]->(src)
-    MATCH p = (src)-[*1..5]->(dst)
+    return cast(LiteralString, f"""\
+    MATCH (t:Trace {{unit_id:$unit_id}})-[:CONTAINS*1..]->(src)
+    MATCH p = (src)-[*1..{max_hop}]->(dst)
     WHERE (NOT 'PROCESS' IN labels(dst) OR NOT 'PROCESS' IN labels(src))
         AND NOT (src:MODULE)
         AND EXISTS((t)-[:CONTAINS*1..]->(dst))
     WITH nodes(p) AS ns, relationships(p) AS rs
-    RETURN {
-    nlst: [n IN ns | {elementId: elementId(n), labels: labels(n), properties: properties(n)}],
-    rlst:  [r IN rs | {
+    RETURN {{
+    nlst: [n IN ns | {{elementId: elementId(n), labels: labels(n), properties: properties(n)}}],
+    rlst:  [r IN rs | {{
         elementId: elementId(r),
         startNodeElementId: elementId(startNode(r)),
         endNodeElementId: elementId(endNode(r)),
         type: type(r),
         properties: properties(r)
-        }]
-    } AS provenance;
+        }}]
+    }} AS provenance;
+    """)
+
+def QUERY_ALL_IoCs() -> LiteralString:
+    """
+    Generates a Cypher query to retrieve all Indicators of Compromise (IoCs) in the database.
+
+    Returns:
+        nodes representing the IoCs
+    """
+    return """\
+    MATCH (t:Trace)
+    WHERE t.unit_id = $unit_id
+    MATCH (t)-[:CONTAINS]->(n)
+    WHERE NOT n:PROCESS      // PROCESS 라벨 제거
+        AND NOT n:Trace        // (원하면) Trace 자기 자신도 제거
+    RETURN DISTINCT properties(n) AS iocs;
+    """
+
+def QUERY_ALL_UNIT_IDS() -> LiteralString:
+    """
+    Generates a Cypher query to retrieve all distinct unit IDs present in the database.
+
+    Returns:
+        list of distinct unit IDs
+    """
+    return """\
+    MATCH (n:Trace)
+    RETURN DISTINCT n.unit_id AS unit_id;
+    """
+
+def FLUSH_UNIT_DATA() -> LiteralString:
+    """
+    Generates a Cypher query to flush all data associated with a specific unit_id from the database.
+
+    Parameters:
+        - unit_id : The unit ID to flush data for.
+    """
+    return """\
+    MATCH (n)
+    WHERE n.unit_id = $unit_id
+    DETACH DELETE n
     """
