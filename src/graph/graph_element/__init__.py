@@ -4,6 +4,7 @@ from .element import (
     SigraphNode, SigraphRelationship,
     SigraphTrace, SigraphTraceRelationship,
     SigraphSigmaRule, SigraphSigmaRuleRelationship,
+    SigraphSummary, SigraphIoC,
 )
 from .exceptions import GraphElementException, InvalidElementException
 from .element_behavior import GraphElementBehavior
@@ -16,6 +17,8 @@ __all__: list[str] = [
     "SigraphTraceRelationship",
     "SigraphSigmaRule",
     "SigraphSigmaRuleRelationship",
+    "SigraphSummary",
+    "SigraphIoC",
     "GraphElementException",
     "InvalidElementException",
     "GraphElementBehavior",

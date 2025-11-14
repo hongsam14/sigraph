@@ -21,7 +21,8 @@ class TypeExtension:
             data (str): The string to convert.
 
         Returns:
-            provenance.type.ArtifactType: The corresponding ArtifactType enum.
+            tuple[str, provenance_type.ArtifactType | None]: A tuple containing the corresponding Artifact\
+                  name and its type (or None if not specified).
 
         Raises:
             ValueError: If the data is empty. or if the data is not a valid ArtifactType.
@@ -32,6 +33,36 @@ class TypeExtension:
             return provenance_type.ArtifactType(data)
         except ValueError as ve:
             raise provenance_exceptions.InvalidInputException(f"{data} is not a valid ArtifactType", ("ArtifactType", str(ve)))
+
+    @staticmethod
+    def from_string_to_artifact_name_and_type(data: str) -> tuple[str, provenance_type.ArtifactType | None]:
+        """_summary_
+        Create an Artifact name from a Artifact formatted string.
+
+        Args:
+            data (str): The string to convert.
+        
+        Returns:
+            str: The corresponding Artifact name.
+        
+        Raises:
+            ValueError: If the data is empty.
+        """
+        if not data:
+            raise provenance_exceptions.InvalidInputException("Data cannot be empty", ("data", type(data).__name__))
+        try:
+            ## check if the data is in ArtifactType
+            ## split the data by '@' and get the first part
+            if "@" not in data:
+                return data, None
+            tokens: list[str] = data.split("@")
+            artifact_name: str = tokens[0]
+            return artifact_name, TypeExtension.from_string_to_artifact_type(tokens[1])
+        except ValueError as ve:
+            raise provenance_exceptions.InvalidInputException(f"Error while parsing artifact name: {ve}", ("data", str(ve)))
+        except provenance_exceptions.InvalidInputException as iie:
+            raise provenance_exceptions.InvalidInputException(f"Error while parsing artifact name: {iie}", ("data", str(iie)))
+
 
     @staticmethod
     def from_string_to_action_type(data: str) -> provenance_type.ActionType:

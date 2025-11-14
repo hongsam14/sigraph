@@ -79,7 +79,7 @@ ollama==0.5.3
 openai==1.99.9
 opensearch-py==2.8.0
 orjson==3.11.2
-packaging==25.0
+packaging>=24.1,<25.0
 pandas==2.3.1
 pansi==2024.11.0
 pathspec==0.12.1
@@ -103,9 +103,13 @@ pylint==3.3.7
 pyparsing==3.2.3
 pypdf==5.9.0
 pyproject_hooks==1.2.0
-# pySigma==0.11.23
+pySigma==0.11.23
+pySigma-backend-elasticsearch==1.1.6
+pySigma-backend-opensearch==1.0.4
+pysigma-pipeline-sysmon==1.0.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
+python-multipart==0.0.20
 pytz==2025.2
 PyYAML==6.0.2
 referencing==0.36.2

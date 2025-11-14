@@ -8,23 +8,24 @@ import json
 from typing import Any
 from uuid import UUID
 from pydantic import BaseModel
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, UploadFile, File
 from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.encoders import jsonable_encoder
 from app.config import AppConfig
 from db.db_session import DBSession
 from db.db_model import SyslogModel
 from graph.graph_model import GraphNode
 from graph.graph_session import GraphSession
+from rule.session import RuleSession
 from ai.ai_agent import GraphAIAgent
 
 import traceback
-
-
 
 class DBAPI:
     """Database API for interacting with the System Provenance database."""
     graph_session: GraphSession
     db_session: DBSession
+    rule_session: RuleSession
     api_router: APIRouter = APIRouter(prefix="/v1/db")
 
     def __init__(self, logger: Any, config: AppConfig):
@@ -39,6 +40,10 @@ class DBAPI:
             logger,
             uri=config.opensearch_uri,
             index_name=config.opensearch_index
+        )
+        self.rule_session = RuleSession(
+            logger,
+            db_session=self.db_session
         )
 
         self.api_router.add_api_route(
@@ -57,14 +62,6 @@ class DBAPI:
             description="Store a syslog object in the database."
         )
 
-        self.api_router.add_api_route(
-            "/syslog/sequence/{unit_id}/{trace_id}",
-            self.get_syslog_sequence,
-            methods=["GET"],
-            summary="Get syslog sequence",
-            description="Retrieve a sequence of syslog objects associated with a specific trace ID and unit ID."
-        )
-
         # DEPRECATED
         # self.api_router.add_api_route(
         #     "/syslog/sequences/{unit_id}/label/{input_label}",
@@ -75,15 +72,15 @@ class DBAPI:
         # )
 
         self.api_router.add_api_route(
-            "/clean_debris/{unit_id}",
-            self.clean_debris,
-            methods=["POST"],
-            summary="Clean debris in the graph database for a given unit ID",
-            description="Remove unnecessary nodes and relationships from the graph database."
+            "/provenance/{unit_id}",
+            self.get_system_provenance_by_unit,
+            methods=["GET"],
+            summary="Get all system provenance nodes for a unit",
+            description="Retrieve all system provenance nodes associated with a specific unit ID from the graph database."
         )
 
         self.api_router.add_api_route(
-            "/traces/{unit_id}",
+            "/provenance/{unit_id}/traces",
             self.get_traces_by_unit,
             methods=["GET"],
             summary="Get all trace IDs for a unit",
@@ -91,11 +88,62 @@ class DBAPI:
         )
 
         self.api_router.add_api_route(
-            "/graph/{unit_id}",
-            self.get_system_provenance_by_unit,
+            "/provenance/{unit_id}/sequence/{trace_id}",
+            self.get_syslog_sequence,
             methods=["GET"],
-            summary="Get all system provenance nodes for a unit",
-            description="Retrieve all system provenance nodes associated with a specific unit ID from the graph database."
+            summary="Get syslog sequence",
+            description="Retrieve the ordered sequence of syslog events for the specified unit ID and trace ID.\
+                This endpoint returns the full list of syslog objects that make up the provenance trace,\
+                in the order they occurred. Use this endpoint to analyze the complete event history for a given trace.\
+                For drift analysis or to compare changes in the sequence, use the `/provenance/{unit_id}/sequence/{trace_id}/drift` endpoint."
+        )
+        
+        self.api_router.add_api_route(
+            "/provenance/{unit_id}/sequence/{trace_id}/drift",
+            self.get_syslog_sequence_drift,
+            methods=["GET"],
+            summary="Get syslog sequence with drift analysis",
+            description="Retrieve a sequence of syslog objects associated with a specific trace ID and unit ID."
+        )
+
+        self.api_router.add_api_route(
+            "/provenance/optimize",
+            self.optimize_all,
+            methods=["DELETE"],
+            summary="Clean debris in the graph database for all unit IDs",
+            description="Remove unnecessary nodes and relationships from the graph database for all unit IDs."
+        )
+        
+        self.api_router.add_api_route(
+            "/provenance/{unit_id}/optimize",
+            self.optimize,
+            methods=["DELETE"],
+            summary="Clean debris in the graph database for a given unit ID",
+            description="Remove unnecessary nodes and relationships from the graph database."
+        )
+
+        self.api_router.add_api_route(
+            "/provenance/{unit_id}/flush",
+            self.flush_unit_data,
+            methods=["DELETE"],
+            summary="Flush all data for a unit",
+            description="Remove all data associated with a specific unit ID from the graph database."
+        )
+
+        self.api_router.add_api_route(
+            "/iocs/{unit_id}",
+            self.get_all_iocs,
+            methods=["GET"],
+            summary="Get all Indicators of Compromise (IoCs) for a unit",
+            description="Retrieve all Indicators of Compromise (IoCs) associated with a specific unit ID from the graph database."
+        )
+
+        self.api_router.add_api_route(
+            "/query/{unit_id}/sigma",
+            self.query_sigma_rules,
+            methods=["POST"],
+            summary="Query syslog sequences with Sigma rules",
+            description="Retrieve syslog sequences that match the provided Sigma rules."
         )
 
     async def post_syscall(self, event: GraphNode):
@@ -115,6 +163,18 @@ class DBAPI:
             raise e
         
     async def get_syslog_sequence(self, unit_id: str, trace_id: str):
+        """Get a sequence of syslog objects from the database."""
+        try:
+            uuid_obj = UUID(unit_id)
+            syslog_sequence = await self.db_session.get_syslog_sequence_with_trace(
+                unit_id=uuid_obj,
+                trace_id=trace_id,
+            )
+            return {"status": "ok", "data": syslog_sequence}
+        except Exception as e:
+            raise e
+        
+    async def get_syslog_sequence_drift(self, unit_id: str, trace_id: str):
         """Get a sequence of syslog objects from the database."""
         try:
             uuid_obj = UUID(unit_id)
@@ -175,11 +235,19 @@ class DBAPI:
     #     except Exception as e:
     #         raise e
 
-    async def clean_debris(self, unit_id: str) -> dict:
+    async def optimize(self, unit_id: str) -> dict:
         """clean debris in the graph database for a given unit ID."""
         try:
             uuid_obj = UUID(unit_id)
             result = await self.graph_session.clean_debris(unit_id=uuid_obj)
+            return {"status": "ok", "data": result}
+        except Exception as e:
+            raise e
+        
+    async def optimize_all(self) -> dict:
+        """clean debris in the graph database for all unit IDs."""
+        try:
+            result = await self.graph_session.flush_all_debris()
             return {"status": "ok", "data": result}
         except Exception as e:
             raise e
@@ -201,6 +269,45 @@ class DBAPI:
             if provenances is None:
                 raise RuntimeError(f"Error raised when provenance found for unit_id={unit_id}")
             return provenances
+        except Exception as e:
+            raise e
+
+    async def flush_unit_data(self, unit_id: str) -> dict:
+        """Flush all data associated with a given unit ID from the graph database."""
+        try:
+            uuid_obj = UUID(unit_id)
+            result = await self.graph_session.flush_unit_data(unit_id=uuid_obj)
+            os_result = await self.db_session.flush_unit_syslogs(unit_id=uuid_obj)
+            # add opensearch_deleted to result
+            result['opensearch_deleted'] = os_result
+            return {"status": "ok", "data": result}
+        except Exception as e:
+            raise e
+        
+    async def get_all_iocs(self, unit_id: str) -> dict:
+        """Get all Indicators of Compromise (IoCs) for a given unit ID."""
+        try:
+            uuid_obj = UUID(unit_id)
+            iocs = await self.graph_session.get_all_iocs(unit_id=uuid_obj)
+            return {"status": "ok", "unit_id": unit_id, "iocs": iocs}
+        except Exception as e:
+            raise e
+    
+    async def query_sigma_rules(self,
+                                unit_id: str,
+                                rule_bytes: UploadFile=File(...)) -> JSONResponse:
+        """_summary_
+        Query with sigma rules to get matching syslog sequences.
+        """
+        try:
+            uuid_obj = UUID(unit_id)
+            rule_bytes_content = await rule_bytes.read()
+            syslog_sequence = await self.rule_session.query_sigma_rules(
+                unit_id=uuid_obj,
+                rule_bytes=rule_bytes_content,
+            )
+            # Ensure we return a JSONResponse as declared
+            return JSONResponse(syslog_sequence.model_dump())
         except Exception as e:
             raise e
 
