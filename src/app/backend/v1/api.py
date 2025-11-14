@@ -8,23 +8,24 @@ import json
 from typing import Any
 from uuid import UUID
 from pydantic import BaseModel
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, UploadFile, File
 from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.encoders import jsonable_encoder
 from app.config import AppConfig
 from db.db_session import DBSession
 from db.db_model import SyslogModel
 from graph.graph_model import GraphNode
 from graph.graph_session import GraphSession
+from rule.session import RuleSession
 from ai.ai_agent import GraphAIAgent
 
 import traceback
-
-
 
 class DBAPI:
     """Database API for interacting with the System Provenance database."""
     graph_session: GraphSession
     db_session: DBSession
+    rule_session: RuleSession
     api_router: APIRouter = APIRouter(prefix="/v1/db")
 
     def __init__(self, logger: Any, config: AppConfig):
@@ -39,6 +40,10 @@ class DBAPI:
             logger,
             uri=config.opensearch_uri,
             index_name=config.opensearch_index
+        )
+        self.rule_session = RuleSession(
+            logger,
+            db_session=self.db_session
         )
 
         self.api_router.add_api_route(
@@ -128,6 +133,14 @@ class DBAPI:
             methods=["GET"],
             summary="Get all Indicators of Compromise (IoCs) for a unit",
             description="Retrieve all Indicators of Compromise (IoCs) associated with a specific unit ID from the graph database."
+        )
+
+        self.api_router.add_api_route(
+            "/query/{unit_id}/sigma",
+            self.query_sigma_rules,
+            methods=["POST"],
+            summary="Query syslog sequences with Sigma rules",
+            description="Retrieve syslog sequences that match the provided Sigma rules."
         )
 
     async def post_syscall(self, event: GraphNode):
@@ -261,6 +274,9 @@ class DBAPI:
         try:
             uuid_obj = UUID(unit_id)
             result = await self.graph_session.flush_unit_data(unit_id=uuid_obj)
+            os_result = await self.db_session.flush_unit_syslogs(unit_id=uuid_obj)
+            # add opensearch_deleted to result
+            result['opensearch_deleted'] = os_result
             return {"status": "ok", "data": result}
         except Exception as e:
             raise e
@@ -271,6 +287,24 @@ class DBAPI:
             uuid_obj = UUID(unit_id)
             iocs = await self.graph_session.get_all_iocs(unit_id=uuid_obj)
             return {"status": "ok", "unit_id": unit_id, "iocs": iocs}
+        except Exception as e:
+            raise e
+    
+    async def query_sigma_rules(self,
+                                unit_id: str,
+                                rule_bytes: UploadFile=File(...)) -> JSONResponse:
+        """_summary_
+        Query with sigma rules to get matching syslog sequences.
+        """
+        try:
+            uuid_obj = UUID(unit_id)
+            rule_bytes_content = await rule_bytes.read()
+            syslog_sequence = await self.rule_session.query_sigma_rules(
+                unit_id=uuid_obj,
+                rule_bytes=rule_bytes_content,
+            )
+            # Ensure we return a JSONResponse as declared
+            return JSONResponse(syslog_sequence.model_dump())
         except Exception as e:
             raise e
 

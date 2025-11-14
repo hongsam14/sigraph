@@ -4,6 +4,7 @@ which manages the connection to the Neo4j graph database.
 It provides methods to upsert system provenance objects,
 and retrieve Sigraph nodes and relationships.
 """
+import asyncio
 from datetime import datetime
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -58,8 +59,9 @@ class GraphSession:
                 logger=logger,
                 primary_keys=primary_keys)
             # run constraints
-            GraphElementBehavior.apply_constraints(
-                graph_client=self.__client,
+            asyncio.run_coroutine_threadsafe(GraphElementBehavior.apply_constraints(
+                graph_client=self.__client,),
+                asyncio.get_event_loop()
             )
         except Exception as e:
             self.__logger.error(
@@ -77,7 +79,11 @@ class GraphSession:
         """
         self.__logger.info("Closing Neo4j connection.")
         try:
-            self.__client.close()
+             # close the client connection
+             asyncio.run_coroutine_threadsafe(
+                 self.__client.close(),
+                 asyncio.get_event_loop()
+                 )
         except Exception as e:
             self.__logger.error(f"Failed to close Neo4j connection: {str(e)}")
             raise e
