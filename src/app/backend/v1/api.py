@@ -92,14 +92,17 @@ class DBAPI:
             self.get_syslog_sequence,
             methods=["GET"],
             summary="Get syslog sequence",
-            description="Retrieve a sequence of syslog objects associated with unit ID."
+            description="Retrieve the ordered sequence of syslog events for the specified unit ID and trace ID.\
+                This endpoint returns the full list of syslog objects that make up the provenance trace,\
+                in the order they occurred. Use this endpoint to analyze the complete event history for a given trace.\
+                For drift analysis or to compare changes in the sequence, use the `/provenance/{unit_id}/sequence/{trace_id}/drift` endpoint."
         )
         
         self.api_router.add_api_route(
             "/provenance/{unit_id}/sequence/{trace_id}/drift",
             self.get_syslog_sequence_drift,
             methods=["GET"],
-            summary="Get syslog sequence",
+            summary="Get syslog sequence with drift analysis",
             description="Retrieve a sequence of syslog objects associated with a specific trace ID and unit ID."
         )
 

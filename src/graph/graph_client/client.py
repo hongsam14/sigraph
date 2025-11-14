@@ -113,7 +113,7 @@ class GraphClient:
             params (Any): Parameters for the Cypher query.
 
         Returns:
-            ResultSummary: The result of the query as a dictionaries.
+            ResultSummary: The result summary containing counters and metadata about the query execution.
         """
         for attempt_count in range(self.__retry_count):
             try:
@@ -133,7 +133,7 @@ class GraphClient:
                 # sleep for retry delay
                 # delay increases with each attempt (exponential backoff)
                 await asyncio.sleep(self.__retry_delay * (attempt_count ** 2))
-        raise RuntimeError("Unreachable code reached in run()")
+        raise RuntimeError("Unreachable code reached in consume()")
         
 
     async def merge_node(self, sub_node: Node, primary_label: str, primary_key: str) -> None:

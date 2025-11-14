@@ -542,7 +542,7 @@ class GraphElementBehavior:
             )
             # return the result
             if not cursor:
-                raise RuntimeError("No result returned from clean_debris")
+                raise GraphDBInteractionException("No result returned from clean_debris", ("unit_id", str(unit_id)))
             stats: SummaryCounters = cursor.counters
             return SigraphSummary(
                 nodes_created=stats.nodes_created,
@@ -710,7 +710,7 @@ class GraphElementBehavior:
             unit_id (UUID): The unique identifier for the unit.
         
         Returns:
-            dict: A dictionary containing the number of nodes and relationships deleted.
+            SigraphSummary: An object containing the number of nodes and relationships deleted.
         """
         if not graph_client:
             raise InvalidInputException("Graph cannot be None", ("graph", type(graph_client).__name__))
@@ -725,7 +725,10 @@ class GraphElementBehavior:
             )
             # return the result
             if not cursor:
-                raise RuntimeError("No result returned from flush_unit_data") 
+                raise GraphDBInteractionException(
+                    "No result returned from flush_unit_data",
+                    ("unit_id", str(unit_id))
+                )
             stats: SummaryCounters = cursor.counters
             return SigraphSummary(
                 nodes_created=stats.nodes_created,
@@ -756,7 +759,7 @@ class GraphElementBehavior:
             )
             # return the result
             if not cursor or len(cursor) == 0:
-                raise RuntimeError("No result returned from clean_all_debris") 
+                raise GraphDBInteractionException("No result returned from clean_all_debris", ())
             ## get all unit_ids from cursor and call clean_debris for each unit_id
             total_results: SigraphSummary = SigraphSummary(
                 nodes_created=0,
@@ -795,7 +798,7 @@ class GraphElementBehavior:
             unit_id (UUID): The unique identifier for the unit.
 
         Returns:
-            list[dict]: A list of IOC artifact records belonging to the given unit.
+            list[SigraphIoC]: A list of IOC artifact records belonging to the given unit.
 
         """
         if not graph_client:
@@ -811,7 +814,10 @@ class GraphElementBehavior:
             t_query = QUERY_TRACES()
             t_result = await graph_client.run(t_query, unit_id=str(unit_id))
             if not t_result or len(t_result) == 0:
-                raise RuntimeError("No traces found for the given unit_id when getting IOC artifacts")
+                raise GraphDBInteractionException(
+                    "No traces found for the given unit_id when getting IOC artifacts",
+                    ("unit_id", str(unit_id))
+                )
             ## get all trace_ids from t_result
             trace_id_set = set()
             for t_record in t_result:
@@ -834,12 +840,12 @@ class GraphElementBehavior:
                     if rt_id in trace_id_set:
                         real_ids.add(rt_id)
                 artifact_name, artifact_type = TypeExtension.from_string_to_artifact_name_and_type(artfct_str)
-                if artifact_name is None or artifact_type is None:
+                if artifact_name is None:
                     continue
                 artfct = SigraphIoC(
                     image=ioc_record.get("image", "Unknown"),
                     artifact=artifact_name,
-                    artifact_type=str(artifact_type),
+                    artifact_type=artifact_type if artifact_type is not None else "UNKNOWN",
                     related_trace_ids=list(real_ids)
                 )
                 iocs.append(artfct)

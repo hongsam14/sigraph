@@ -21,7 +21,8 @@ class TypeExtension:
             data (str): The string to convert.
 
         Returns:
-            provenance.type.ArtifactType: The corresponding ArtifactType enum.
+            tuple[str, provenance_type.ArtifactType | None]: A tuple containing the corresponding Artifact\
+                  name and its type (or None if not specified).
 
         Raises:
             ValueError: If the data is empty. or if the data is not a valid ArtifactType.
@@ -52,15 +53,15 @@ class TypeExtension:
         try:
             ## check if the data is in ArtifactType
             ## split the data by '@' and get the first part
-            if not "@" in data:
+            if "@" not in data:
                 return data, None
             tokens: list[str] = data.split("@")
             artifact_name: str = tokens[0]
-            if len(tokens) < 2:
-                return artifact_name, None
             return artifact_name, TypeExtension.from_string_to_artifact_type(tokens[1])
-        except Exception as e:
-            raise provenance_exceptions.InvalidInputException(f"Error while parsing artifact name: {e}", ("data", str(e)))
+        except ValueError as ve:
+            raise provenance_exceptions.InvalidInputException(f"Error while parsing artifact name: {ve}", ("data", str(ve)))
+        except provenance_exceptions.InvalidInputException as iie:
+            raise provenance_exceptions.InvalidInputException(f"Error while parsing artifact name: {iie}", ("data", str(iie)))
 
 
     @staticmethod

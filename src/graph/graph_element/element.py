@@ -442,6 +442,12 @@ class SigraphSigmaRuleRelationship:
 class SigraphSummary(BaseModel):
     """_summary_
     Represents a summary of the graph operation results.
+
+    fields:
+        nodes_created (int): The number of nodes created in the graph.
+        relationships_created (int): The number of relationships created in the graph.
+        nodes_deleted (int): The number of nodes deleted from the graph.
+        relationships_deleted (int): The number of relationships deleted from the graph.
     """
     nodes_created: int
     relationships_created: int
@@ -449,6 +455,15 @@ class SigraphSummary(BaseModel):
     relationships_deleted: int
 
 class SigraphIoC(BaseModel):
+    """_summary_
+    Represents an Indicator of Compromise (IoC) in the system provenance graph.
+    
+    fields:
+        image (str): The process image associated with the IoC.
+        artifact (str): The artifact value of the IoC.
+        artifact_type (str): The type of the artifact.
+        related_trace_ids (List[str]): A list of related trace IDs associated with the IoC.
+    """
     image: str
     artifact: str
     artifact_type: str

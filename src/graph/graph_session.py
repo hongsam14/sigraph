@@ -313,7 +313,7 @@ class GraphSession:
             unit_id (UUID): The unit ID to query.
         
         Returns:
-            list[SigraphIoC]: A list of SigraphIoC objects representing the IoCs.
+            list[dict] | None: A list of SigraphIoC objects representing the IoCs.
         
         Raises:
             GraphDBInteractionException: If there is an error during the retrieval operation.
