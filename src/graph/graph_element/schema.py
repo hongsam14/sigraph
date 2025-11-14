@@ -162,8 +162,8 @@ def QUERY_ALL_IoCs() -> LiteralString:
     MATCH (t:Trace)
     WHERE t.unit_id = $unit_id
     MATCH (t)-[:CONTAINS]->(n)
-    WHERE NOT n:PROCESS      // PROCESS 라벨 제거
-        AND NOT n:Trace        // (원하면) Trace 자기 자신도 제거
+    WHERE NOT n:PROCESS      // Remove PROCESS label
+        AND NOT n:Trace        // Remove Trace itself
     RETURN DISTINCT properties(n) AS iocs;
     """
 
